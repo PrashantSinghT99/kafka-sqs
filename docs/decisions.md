@@ -6,11 +6,11 @@ This is the living implementation record for the project. Update it whenever a s
 
 | Item | Current value |
 |---|---|
-| Active phase | Phase 6 — CI and reporting |
-| Current point | Step 18 — Add continuous integration and evidence completed |
-| Step status | Completed and verified |
-| Last completed step | Step 18 — Add continuous integration and evidence |
-| Next gate | Baseline complete — select a later extension for a new reviewed gate |
+| Active phase | Phase 7 — Visual local learning lab |
+| Current point | Step 19B — Local application runtime and visual dashboard |
+| Step status | In progress |
+| Last completed step | Step 19A — Persistent local infrastructure |
+| Next gate | Reuse the tested producers/consumers in continuously running local services |
 
 ## Repository state
 
@@ -18,7 +18,7 @@ This is the living implementation record for the project. Update it whenever a s
 |---|---|
 | Primary branch | `main` |
 | Remote | `origin` → `https://github.com/PrashantSinghT99/kafka-sqs.git` |
-| Last completed-step reference | Step 18 — `ci: add split test gates and evidence` |
+| Last completed-step reference | Step 19A — `feat: add persistent local messaging infrastructure` |
 | Remote tracking | `main` → `origin/main` |
 | Commit policy | One verified implementation-step commit per completed step |
 
@@ -46,6 +46,7 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-12 | Step 16 — SQS component tests | Completed | 72 tests passed; API-to-queue attributes and SDK-to-database deletion-after-success flow verified |
 | 2026-08-12 | Step 17 — SQS reliability | Completed | 75 tests passed; visibility/redelivery, receive count, redrive, FIFO order, and deduplication verified |
 | 2026-08-12 | Step 18 — CI and evidence | Completed | 76 tests passed; workflow structure, split selections, timeouts, JUnit uploads, and full cleanup verified |
+| 2026-08-12 | Step 19A — Persistent local infrastructure | Completed | Compose configuration valid; Kafka, Console, LocalStack, PostgreSQL, and Adminer healthy; host SDK connections and browser UIs verified |
 
 ## Decision record
 
@@ -406,6 +407,20 @@ This is the living implementation record for the project. Update it whenever a s
 - Reason: A timed-out or failed asynchronous test needs identifiers and infrastructure evidence after the runner is gone.
 - Consequence: A unit test parses the workflow and guards the three jobs, dependencies, timeout ceiling, and artifact upload steps.
 
+### D-052 — Keep the visual lab separate from disposable tests
+
+- Status: Accepted
+- Decision: Add a persistent `compose.local.yml` learning environment without changing the Testcontainers fixtures used by automated tests.
+- Reason: Visual exploration needs stable ports and retained data, while trustworthy automated tests need isolated resources and deterministic cleanup.
+- Consequence: Local lab services live until explicitly stopped; the existing automated-test baseline remains disposable and CI-safe.
+
+### D-053 — Bind development ports to IPv4 loopback
+
+- Status: Accepted
+- Decision: Expose local-lab services only on `127.0.0.1` and advertise Kafka externally as `127.0.0.1:29092`.
+- Reason: Loopback binding avoids exposing unsecured learning services to the LAN and avoids a Windows IPv6 `localhost` connection delay observed during verification.
+- Consequence: Browser and SDK documentation uses explicit `127.0.0.1` addresses; containers communicate through their internal Compose network names.
+
 ## Verification log
 
 ### Step 1 — Python project bootstrap
@@ -763,6 +778,24 @@ This is the living implementation record for the project. Update it whenever a s
   - Every job uploads JUnit evidence even after failure: Passed
   - Workflow structure has a fast unit regression guard: Passed
   - Complete clean local baseline passes: Passed
+
+### Step 19A — Persistent local infrastructure
+
+- Date: 2026-08-12
+- Compose file: `compose.local.yml`
+- Configuration command: `docker compose -f compose.local.yml config --quiet`
+- Startup command: `docker compose -f compose.local.yml up -d --wait kafka kafka-console postgres adminer localstack`
+- Service result: Kafka, Redpanda Console, LocalStack SQS, PostgreSQL, and Adminer all healthy
+- Host connectivity: Confluent AdminClient reached broker 1; boto3 listed SQS; Psycopg connected to database `mqtest`
+- Browser result: Redpanda Console reported one online Kafka broker; Adminer exposed its PostgreSQL login UI
+- Implementation finding: Windows resolved `localhost` over IPv6 slowly while ports were bound to IPv4. D-053 records the explicit-loopback fix.
+- Acceptance criteria:
+  - Infrastructure has fixed, documented local ports: Passed
+  - Kafka and PostgreSQL data use named persistent volumes: Passed
+  - LocalStack state uses a named persistent volume: Passed
+  - Redpanda Console connects to Apache Kafka: Passed
+  - Adminer reaches the Compose PostgreSQL service: Passed
+  - Unsecured ports are bound only to loopback: Passed
 
 ## Open decisions
 
