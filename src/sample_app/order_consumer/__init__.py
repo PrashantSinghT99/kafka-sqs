@@ -11,11 +11,16 @@ from sample_app.order_consumer.downstream import (
     DownstreamNotificationError,
     OrderNotificationClient,
 )
-from sample_app.order_consumer.store import PostgresOrderStore, StoredOrder
+from sample_app.order_consumer.store import (
+    EventStoreResult,
+    PostgresOrderStore,
+    StoredOrder,
+)
 
 __all__ = [
     "ConsumerSettings",
     "DownstreamNotificationError",
+    "EventStoreResult",
     "KafkaOrderConsumer",
     "OrderConsumerError",
     "OrderConsumerTimeout",

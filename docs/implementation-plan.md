@@ -271,6 +271,8 @@ Learning checkpoint: distinguish state verification from interaction verificatio
 
 ### Step 12 — Prove idempotency
 
+Status: Completed on 2026-08-12. Verification is recorded in [Decisions and Implementation Progress](decisions.md).
+
 Goal: make duplicate delivery safe.
 
 Tasks:
@@ -428,4 +430,4 @@ These are deliberately postponed until the baseline is reliable:
 
 ## Immediate next action
 
-Begin Step 12 only: make event handling idempotent by event ID, prove duplicate delivery creates one business/downstream effect, and prove a different event sharing the correlation ID is still processed.
+Begin Step 13 only: define deterministic retry classification/backoff, add a retry topic and DLQ path, then prove transient recovery and poison-event isolation without partial business state.

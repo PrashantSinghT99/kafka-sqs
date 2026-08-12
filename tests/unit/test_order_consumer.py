@@ -10,6 +10,7 @@ from mqtest.contracts import make_order_created_event
 from mqtest.kafka import serialize_order_created_event
 from sample_app.order_consumer import (
     ConsumerSettings,
+    EventStoreResult,
     KafkaOrderConsumer,
     OrderConsumerError,
 )
@@ -38,12 +39,17 @@ class _FakeMessage:
 class _FakeStore:
     def __init__(self, *, error: Exception | None = None) -> None:
         self.events: list[Any] = []
+        self.completed: list[Any] = []
         self.error = error
 
-    def store(self, event: Any) -> None:
+    def store(self, event: Any) -> EventStoreResult:
         if self.error is not None:
             raise self.error
         self.events.append(event)
+        return EventStoreResult(is_new=True, downstream_required=True)
+
+    def mark_completed(self, event_id: Any) -> None:
+        self.completed.append(event_id)
 
 
 class _FakeConsumer:
@@ -114,6 +120,7 @@ def test_database_store_completes_before_synchronous_offset_commit() -> None:
         processed = consumer.process_one(timeout_seconds=0.1)
 
     assert store.events == [event]
+    assert store.completed == [event.event_id]
     assert len(client.commits) == 1
     assert client.commits[0][1] is False
     assert processed.event_id == str(event.event_id)
@@ -163,5 +170,37 @@ def test_downstream_failure_after_store_prevents_offset_commit() -> None:
             consumer.process_one(timeout_seconds=0.1)
 
     assert store.events == [event]
+    assert store.completed == []
     assert downstream.events == [event]
     assert client.commits == []
+
+
+@pytest.mark.unit
+def test_completed_duplicate_skips_downstream_and_commits_offset() -> None:
+    event = make_order_created_event()
+    store = _FakeStore()
+
+    def duplicate_store(observed: Any) -> EventStoreResult:
+        store.events.append(observed)
+        return EventStoreResult(is_new=False, downstream_required=False)
+
+    store.store = duplicate_store  # type: ignore[method-assign]
+    downstream = _FakeDownstream()
+    client = _FakeConsumer(
+        _FakeMessage(serialize_order_created_event(event)),
+        store,
+    )
+
+    with KafkaOrderConsumer(
+        ConsumerSettings("unused:9092", "orders-service"),
+        "orders",
+        store,
+        downstream=downstream,
+        consumer=client,
+    ) as consumer:
+        processed = consumer.process_one(timeout_seconds=0.1)
+
+    assert processed.duplicate is True
+    assert downstream.events == []
+    assert store.completed == []
+    assert len(client.commits) == 1

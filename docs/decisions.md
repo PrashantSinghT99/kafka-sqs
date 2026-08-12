@@ -7,10 +7,10 @@ This is the living implementation record for the project. Update it whenever a s
 | Item | Current value |
 |---|---|
 | Active phase | Phase 3 — Kafka consumer testing |
-| Current point | Step 11 — Add downstream HTTP verification completed |
+| Current point | Step 12 — Prove idempotency completed |
 | Step status | Completed and verified |
-| Last completed step | Step 11 — Add downstream HTTP verification |
-| Next gate | Step 12 — Prove idempotency |
+| Last completed step | Step 12 — Prove idempotency |
+| Next gate | Step 13 — Add retry and DLQ behavior |
 
 ## Repository state
 
@@ -18,7 +18,7 @@ This is the living implementation record for the project. Update it whenever a s
 |---|---|
 | Primary branch | `main` |
 | Remote | `origin` → `https://github.com/PrashantSinghT99/kafka-sqs.git` |
-| Last completed-step reference | Step 11 — `feat: verify downstream order notifications` |
+| Last completed-step reference | Step 12 — `feat: make consumer processing idempotent` |
 | Remote tracking | `main` → `origin/main` |
 | Commit policy | One verified implementation-step commit per completed step |
 
@@ -39,6 +39,7 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-12 | Step 9 — Transactional order consumer | Completed | 44 tests passed; Kafka-to-PostgreSQL state, rollback, redelivery, and post-DB offset commit verified |
 | 2026-08-12 | Step 10 — Eventual consumer assertions | Completed | 50 tests passed; immediate/retry/timeout polling and asynchronous Kafka-to-PostgreSQL component flow verified |
 | 2026-08-12 | Step 11 — Downstream HTTP verification | Completed | 53 tests passed; request contract and scripted temporary-failure recovery verified through a real HTTP stub |
+| 2026-08-12 | Step 12 — Consumer idempotency | Completed | 57 tests passed; duplicate suppression, pending-effect recovery, and correlation-ID reuse verified |
 
 ## Decision record
 
@@ -308,6 +309,20 @@ This is the living implementation record for the project. Update it whenever a s
 - Reason: Kafka must not advance when a required downstream effect is rejected. A small adapter-level attempt count demonstrates a temporary `503` followed by acceptance; Step 13 will define the complete retry/backoff/DLQ policy.
 - Consequence: Exhausted HTTP attempts raise a consumer error and leave the Kafka offset uncommitted. The database-to-offset crash window still requires Step 12 idempotency.
 
+### D-039 — Track event processing as pending then completed
+
+- Status: Accepted
+- Decision: Atomically claim `event_id` as `pending` and insert the order in one transaction. After required downstream work succeeds, update the marker to `completed`; only then commit Kafka.
+- Reason: A single “processed” flag written before the HTTP effect could suppress unfinished work after redelivery. Pending/completed state distinguishes a completed duplicate from a crash-window retry.
+- Consequence: A completed duplicate skips database and HTTP effects but commits its own offset. A pending duplicate retries the downstream effect without inserting another order, then completes the marker.
+
+### D-040 — Deduplicate only by event ID
+
+- Status: Accepted
+- Decision: Use the event ID primary key as the idempotency identity; never use correlation ID for duplicate suppression.
+- Reason: Correlation ID describes a journey and is intentionally shared by multiple legitimate events. Event ID identifies one immutable event delivery.
+- Consequence: Two different event IDs with the same correlation ID create two valid orders and downstream requests; publishing the same event ID twice creates one of each effect.
+
 ## Verification log
 
 ### Step 1 — Python project bootstrap
@@ -531,6 +546,25 @@ This is the living implementation record for the project. Update it whenever a s
   - Configurable stub returns success and failure responses: Passed
   - Temporary `503` followed by `202` preserves identity and succeeds: Passed
   - Downstream failure prevents Kafka offset commit in unit orchestration: Passed
+
+### Step 12 — Consumer idempotency
+
+- Date: 2026-08-12
+- Unit/contract command: `.\.venv\Scripts\python.exe -m pytest -m "unit or contract" -q`
+- Unit/contract result: Passed — 41 selected tests passed
+- Focused command: `.\.venv\Scripts\python.exe -m pytest tests/integration/test_order_consumer_idempotency.py -vv --junitxml="test-results\step12-idempotency.xml"`
+- Focused result: Passed — 3 reliability tests passed in 19.85 seconds
+- Final command: `.\.venv\Scripts\python.exe -m pytest --junitxml="test-results\step12-full.xml"`
+- Final result: Passed — 57 tests collected, 57 passed in 39.43 seconds
+- Dependency result: `pip check` passed with no broken requirements
+- Cleanup result: HTTP stubs, Kafka, and PostgreSQL were cleaned after verification
+- Acceptance criteria:
+  - Event claim and order insert occur in one database transaction: Passed
+  - Same event ID delivered twice creates one order: Passed
+  - Completed duplicate does not repeat downstream HTTP: Passed
+  - Pending redelivery retries unfinished downstream work: Passed
+  - Pending recovery does not insert another order: Passed
+  - Different event IDs with the same correlation ID are both processed: Passed
 
 ## Open decisions
 

@@ -29,6 +29,14 @@ class StoredOrder:
     correlation_id: str
 
 
+@dataclass(frozen=True)
+class EventStoreResult:
+    """Atomic decision returned for new, pending, and completed deliveries."""
+
+    is_new: bool
+    downstream_required: bool
+
+
 class PostgresOrderStore:
     """Own schema setup, atomic event persistence, and observable queries."""
 
@@ -66,16 +74,48 @@ class PostgresOrderStore:
                     CREATE TABLE IF NOT EXISTS {}.processed_events (
                         event_id UUID PRIMARY KEY,
                         event_type TEXT NOT NULL,
-                        processed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        status TEXT NOT NULL DEFAULT 'pending'
+                            CHECK (status IN ('pending', 'completed')),
+                        first_seen_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        processed_at TIMESTAMPTZ NULL
                     )
                     """
                 ).format(schema)
             )
 
-    def store(self, event: OrderCreatedEvent) -> None:
-        """Write business data and processing identity in one transaction."""
+    def store(self, event: OrderCreatedEvent) -> EventStoreResult:
+        """Atomically claim a new event and write its business state once."""
         schema = sql.Identifier(self.schema)
         with psycopg.connect(self.dsn) as connection:
+            claimed = connection.execute(
+                sql.SQL(
+                    """
+                    INSERT INTO {}.processed_events (event_id, event_type)
+                    VALUES (%s, %s)
+                    ON CONFLICT (event_id) DO NOTHING
+                    RETURNING event_id
+                    """
+                ).format(schema),
+                (event.event_id, event.event_type),
+            ).fetchone()
+
+            if claimed is None:
+                existing = connection.execute(
+                    sql.SQL(
+                        "SELECT status FROM {}.processed_events "
+                        "WHERE event_id = %s FOR UPDATE"
+                    ).format(schema),
+                    (event.event_id,),
+                ).fetchone()
+                if existing is None:
+                    raise RuntimeError(
+                        f"Event claim disappeared for {event.event_id}."
+                    )
+                return EventStoreResult(
+                    is_new=False,
+                    downstream_required=existing[0] != "completed",
+                )
+
             connection.execute(
                 sql.SQL(
                     """
@@ -98,15 +138,25 @@ class PostgresOrderStore:
                     event.correlation_id,
                 ),
             )
-            connection.execute(
+            return EventStoreResult(is_new=True, downstream_required=True)
+
+    def mark_completed(self, event_id: UUID) -> None:
+        """Mark all required effects complete before Kafka offset commit."""
+        with psycopg.connect(self.dsn) as connection:
+            result = connection.execute(
                 sql.SQL(
                     """
-                    INSERT INTO {}.processed_events (event_id, event_type)
-                    VALUES (%s, %s)
+                    UPDATE {}.processed_events
+                    SET status = 'completed', processed_at = CURRENT_TIMESTAMP
+                    WHERE event_id = %s
                     """
-                ).format(schema),
-                (event.event_id, event.event_type),
+                ).format(sql.Identifier(self.schema)),
+                (event_id,),
             )
+            if result.rowcount != 1:
+                raise RuntimeError(
+                    f"Cannot complete unknown event {event_id}."
+                )
 
     def fetch_order(self, order_id: str) -> StoredOrder | None:
         """Return the observable business record for an assertion."""
@@ -132,11 +182,29 @@ class PostgresOrderStore:
             row = connection.execute(
                 sql.SQL(
                     "SELECT EXISTS (SELECT 1 FROM {}.processed_events "
-                    "WHERE event_id = %s)"
+                    "WHERE event_id = %s AND status = 'completed')"
                 ).format(sql.Identifier(self.schema)),
                 (event_id,),
             ).fetchone()
         return bool(row and row[0])
+
+    def order_count(self) -> int:
+        with psycopg.connect(self.dsn) as connection:
+            row = connection.execute(
+                sql.SQL("SELECT COUNT(*) FROM {}.orders").format(
+                    sql.Identifier(self.schema)
+                )
+            ).fetchone()
+        return int(row[0]) if row else 0
+
+    def processed_event_count(self) -> int:
+        with psycopg.connect(self.dsn) as connection:
+            row = connection.execute(
+                sql.SQL("SELECT COUNT(*) FROM {}.processed_events").format(
+                    sql.Identifier(self.schema)
+                )
+            ).fetchone()
+        return int(row[0]) if row else 0
 
     def drop_processed_events_table(self) -> None:
         """Create a deterministic database failure for the crash-window test."""

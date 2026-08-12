@@ -87,4 +87,4 @@ assert record.event.data.order_id == "ORD-123"
 
 ## Current status
 
-Steps 1–11 are complete. The consumer now makes a real correlation-aware downstream HTTP call, verified through a disposable recording stub. Tests assert method, path, headers, and body and script a temporary `503` followed by `202`; Kafka progress occurs only after downstream acceptance. Step 12 makes redelivery idempotent.
+Steps 1–12 are complete. Idempotency is atomic and keyed by `event_id`: a new event writes a pending marker and order together, downstream completion finalizes the marker, and completed duplicates skip repeated business/HTTP effects while still advancing Kafka. Pending redelivery resumes the unfinished effect, while different events sharing one correlation ID remain valid. Step 13 adds retry and DLQ behavior.

@@ -10,7 +10,7 @@ from typing import Any, Protocol
 from confluent_kafka import Consumer, Message
 
 from mqtest.contracts import parse_order_created_event
-from sample_app.order_consumer.store import PostgresOrderStore
+from sample_app.order_consumer.store import EventStoreResult, PostgresOrderStore
 
 
 class OrderConsumerError(RuntimeError):
@@ -58,6 +58,7 @@ class ProcessedKafkaRecord:
     partition: int
     offset: int
     group_id: str
+    duplicate: bool
 
 
 class _ConsumerClient(Protocol):
@@ -75,7 +76,9 @@ class _ConsumerClient(Protocol):
 
 
 class _OrderStore(Protocol):
-    def store(self, event: Any) -> None: ...
+    def store(self, event: Any) -> EventStoreResult: ...
+
+    def mark_completed(self, event_id: Any) -> None: ...
 
 
 class _OrderDownstream(Protocol):
@@ -143,9 +146,11 @@ class KafkaOrderConsumer:
             if not isinstance(payload, dict):
                 raise TypeError("event JSON must be an object")
             event = parse_order_created_event(payload)
-            self.store.store(event)
-            if self.downstream is not None:
-                self.downstream.notify(event)
+            store_result = self.store.store(event)
+            if store_result.downstream_required:
+                if self.downstream is not None:
+                    self.downstream.notify(event)
+                self.store.mark_completed(event.event_id)
         except Exception as exc:
             raise OrderConsumerError(
                 f"Order event processing failed before offset commit at "
@@ -174,6 +179,7 @@ class KafkaOrderConsumer:
             partition=message.partition(),
             offset=message.offset(),
             group_id=self.settings.group_id,
+            duplicate=not store_result.is_new,
         )
 
     def close(self) -> None:
