@@ -13,13 +13,16 @@ authors = [
   { name = "Kafka and SQS Learning Project" },
 ]
 dependencies = [
+  "confluent-kafka==2.15.0",
+  "fastapi==0.139.2",
   "jsonschema[format-nongpl]==4.26.0",
   "pydantic==2.13.4",
+  "uvicorn==0.51.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-  "confluent-kafka==2.15.0",
+  "httpx2==2.9.0",
   "pytest>=8.2,<9",
   "testcontainers[kafka]==4.14.2",
 ]

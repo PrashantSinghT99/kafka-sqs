@@ -49,6 +49,17 @@ python -m pytest -m "integration and kafka"
 The integration suite starts and removes its own pinned Kafka container. You do
 not need to install Kafka on the host.
 
+Run the sample producer API against a configured Kafka topic:
+
+```powershell
+$env:KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
+$env:ORDER_EVENTS_TOPIC = "orders.created"
+uvicorn --factory sample_app.order_api:create_configured_order_app
+```
+
+The API accepts `POST /orders`, propagates an optional `X-Correlation-ID`, and
+returns `202 Accepted` only after Kafka acknowledges the event.
+
 Test markers separate fast tests from future infrastructure suites:
 
 ```powershell
@@ -76,4 +87,4 @@ assert record.event.data.order_id == "ORD-123"
 
 ## Current status
 
-Steps 1–6 are complete. The framework can publish contract-valid events and independently observe them through a unique, non-committing Kafka consumer group. Its bounded probe skips unrelated records and reports event identity plus topic/partition/offset evidence when a match is absent. Step 7, the sample producer API, is the next implementation gate.
+Steps 1–7 are complete. The sample `POST /orders` API now validates input, maps it to a typed event, propagates correlation identity, and exposes a replaceable publisher boundary. Step 8, the complete HTTP-to-Kafka producer component test, is the next implementation gate.

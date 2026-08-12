@@ -157,6 +157,8 @@ Learning checkpoint: explain why a unique Kafka consumer group observes rather t
 
 ### Step 7 — Add the sample producer API
 
+Status: Completed on 2026-08-12. Verification is recorded in [Decisions and Implementation Progress](decisions.md).
+
 Goal: test a realistic API-to-Kafka producer boundary.
 
 Tasks:
@@ -418,4 +420,4 @@ These are deliberately postponed until the baseline is reliable:
 
 ## Immediate next action
 
-Begin Step 7 only: add the sample producer API, its request validation, correlation-ID propagation, and unit-level event-mapping tests. Do not combine it with the full API-to-broker component test reserved for Step 8.
+Begin Step 8 only: use the real Kafka producer and independent probe around the sample API, then prove both valid publication and the absence of a matching event for invalid input.

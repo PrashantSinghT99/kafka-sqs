@@ -7,10 +7,10 @@ This is the living implementation record for the project. Update it whenever a s
 | Item | Current value |
 |---|---|
 | Active phase | Phase 2 — Kafka producer testing |
-| Current point | Step 6 — Build the Kafka test probe completed |
+| Current point | Step 7 — Add the sample producer API completed |
 | Step status | Completed and verified |
-| Last completed step | Step 6 — Build the Kafka test probe |
-| Next gate | Step 7 — Add the sample producer API |
+| Last completed step | Step 7 — Add the sample producer API |
+| Next gate | Step 8 — Complete the Kafka producer component test |
 
 ## Repository state
 
@@ -18,7 +18,7 @@ This is the living implementation record for the project. Update it whenever a s
 |---|---|
 | Primary branch | `main` |
 | Remote | `origin` → `https://github.com/PrashantSinghT99/kafka-sqs.git` |
-| Last completed-step reference | Step 6 — `feat: add independent Kafka test probe` |
+| Last completed-step reference | Step 7 — `feat: add sample order producer API` |
 | Remote tracking | `main` → `origin/main` |
 | Commit policy | One verified implementation-step commit per completed step |
 
@@ -34,6 +34,7 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-12 | Step 4 — Event contract | Completed | 17 tests passed; schema format checks and wheel packaging verified |
 | 2026-08-12 | Step 5 — Kafka producer | Completed | 23 tests passed; real broker acknowledgement and delivery evidence verified |
 | 2026-08-12 | Step 6 — Kafka test probe | Completed | 30 tests passed; isolated observation, predicate matching, deadline diagnostics, and cleanup verified |
+| 2026-08-12 | Step 7 — Sample producer API | Completed | 37 tests passed; validation, event mapping, correlation propagation, and publish-failure mapping verified |
 
 ## Decision record
 
@@ -219,6 +220,27 @@ This is the living implementation record for the project. Update it whenever a s
 - Reason: A producer test should find its intended event without failing on normal topic traffic, but a timeout still needs enough evidence to diagnose the group, identities, partitions, and offsets observed.
 - Consequence: `correlation_id` locates one test journey; it still does not route the record or provide idempotency. Full payload assertions happen only after a matching typed record is returned.
 
+### D-027 — Use a FastAPI application factory with an injected publisher
+
+- Status: Accepted
+- Decision: Build the sample API with FastAPI `0.139.2` and construct it through `create_order_app(publisher, topic)` rather than creating a broker client at module import time.
+- Reason: The HTTP mapping can be tested with a recording publisher and no Docker, while the exact same application accepts the real Kafka publisher in a component test. Environment configuration is isolated in a separate runnable factory.
+- Consequence: `sample_app` owns the business/API boundary and depends only on the publisher protocol; `mqtest` remains the reusable broker harness.
+
+### D-028 — Return acceptance only after broker acknowledgement
+
+- Status: Accepted
+- Decision: Validate a strict request, propagate or generate `X-Correlation-ID`, publish synchronously through the existing reliable wrapper, then return `202 Accepted` with order, correlation, and event IDs.
+- Reason: For this learning producer, an accepted response must mean Kafka acknowledged the record. Validation errors must occur before publication, and broker failure must become a sanitized `503` response.
+- Consequence: This endpoint favors deterministic evidence over throughput. A production high-throughput API could instead use an outbox pattern, which is outside the current step.
+
+### D-029 — Use the current Starlette HTTPX2 test client path
+
+- Status: Accepted
+- Decision: Pin `httpx2==2.9.0` for API tests instead of the deprecated plain-HTTPX compatibility path.
+- Reason: Current Starlette documentation identifies HTTPX2 as its maintained `TestClient` dependency. The first successful run with HTTPX emitted a deprecation warning; switching removed it.
+- Consequence: API unit/component tests remain synchronous and warning-free. FastAPI, Uvicorn, HTTPX2, and the Kafka runtime client are pinned explicitly.
+
 ## Verification log
 
 ### Step 1 — Python project bootstrap
@@ -346,13 +368,31 @@ This is the living implementation record for the project. Update it whenever a s
   - Missing match fails at its deadline with group and observed-record evidence: Passed
   - Context-managed consumer closes on completion: Passed
 
+### Step 7 — Sample producer API
+
+- Date: 2026-08-12
+- Framework/runtime: FastAPI `0.139.2`, Uvicorn `0.51.0`, HTTPX2 `2.9.0`
+- Focused command: `.\.venv\Scripts\python.exe -m pytest tests/unit/test_order_api.py -vv`
+- Focused result: Passed — 7 API unit tests passed
+- Final command: `.\.venv\Scripts\python.exe -m pytest --junitxml="test-results\step7-full.xml"`
+- Final result: Passed — 37 tests collected, 37 passed in 27.86 seconds
+- Dependency result: Editable development installation completed; `pip check` passed
+- Cleanup result: No Kafka broker container remained after verification
+- Implementation finding: Plain HTTPX still worked but emitted Starlette's deprecation warning. D-029 records the warning-free HTTPX2 choice recommended by current Starlette documentation.
+- Acceptance criteria:
+  - Valid request returns `202 Accepted` after the publisher succeeds: Passed
+  - Supplied correlation ID is propagated to response header/body and event: Passed
+  - Missing correlation ID is generated and returned: Passed
+  - Request maps exactly to the typed `order.created` event: Passed
+  - Missing, invalid, or extra request fields never invoke the publisher: Passed
+  - Kafka publication failure maps to a sanitized `503`: Passed
+
 ## Open decisions
 
 These decisions are intentionally deferred until their implementation step:
 
 | Decision | Target step | Why deferred |
 |---|---|---|
-| Sample HTTP framework | Step 7 | Select only when the producer API is implemented |
 | PostgreSQL client and migration method | Step 9 | Select alongside transactional idempotency design |
 | HTTP stub product | Step 11 | Select based on Python Testcontainers support and verification API |
 
