@@ -59,4 +59,4 @@ python -m pytest -m "integration and sqs"
 
 ## Current status
 
-Steps 1–4 are complete. The framework now includes a strict typed `order.created` version 1 model, packaged Draft 2020-12 JSON Schema, deterministic event factory, and field-level contract diagnostics. Step 5, the Kafka producer client, is the next implementation gate.
+Steps 1–5 are complete. The framework now publishes contract-valid events with explicit idempotence and acknowledgements, stable order-key routing, tracing headers, bounded failure handling, and topic/partition/offset evidence. Step 6, the independent Kafka test probe, is the next implementation gate.

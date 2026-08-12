@@ -7,10 +7,10 @@ This is the living implementation record for the project. Update it whenever a s
 | Item | Current value |
 |---|---|
 | Active phase | Phase 1 — Kafka foundation |
-| Current point | Step 4 — Define the event contract completed |
+| Current point | Step 5 — Build the Kafka producer client completed |
 | Step status | Completed and verified |
-| Last completed step | Step 4 — Define the event contract |
-| Next gate | Step 5 — Build the Kafka producer client |
+| Last completed step | Step 5 — Build the Kafka producer client |
+| Next gate | Step 6 — Build the Kafka test probe |
 
 ## Repository state
 
@@ -18,7 +18,7 @@ This is the living implementation record for the project. Update it whenever a s
 |---|---|
 | Primary branch | `main` |
 | Remote | `origin` → `https://github.com/PrashantSinghT99/kafka-sqs.git` |
-| Last completed-step reference | Step 4 — `feat: add versioned order event contract` |
+| Last completed-step reference | Step 5 — `feat: add reliable Kafka event producer` |
 | Remote tracking | `main` → `origin/main` |
 | Commit policy | One verified implementation-step commit per completed step |
 
@@ -32,6 +32,7 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-12 | Step 3 — Isolated topics | Completed | Full suite: 10 passed; metadata evidence verified; topic and broker cleanup passed |
 | 2026-08-12 | Git baseline for Steps 1–3 | Completed | Commit `2fa78a2` pushed to `origin/main` |
 | 2026-08-12 | Step 4 — Event contract | Completed | 17 tests passed; schema format checks and wheel packaging verified |
+| 2026-08-12 | Step 5 — Kafka producer | Completed | 23 tests passed; real broker acknowledgement and delivery evidence verified |
 
 ## Decision record
 
@@ -168,6 +169,34 @@ This is the living implementation record for the project. Update it whenever a s
 - Reason: Message contracts should expose producer mistakes rather than coerce values such as the string `"500.00"` into a number or ignore misspelled fields.
 - Consequence: Contract failures include JSON-style field paths and all schema violations observed in one validation pass.
 
+### D-020 — Enable idempotent, fully acknowledged producer delivery explicitly
+
+- Status: Accepted
+- Decision: Configure `enable.idempotence=true`, `acks=all`, a 15-second delivery timeout, a 5-second request timeout, and zero linger for the learning producer.
+- Reason: Producer guarantees should be visible in code instead of relying on client defaults. Short bounded timeouts keep test failures actionable, while idempotence protects broker retries from appending duplicates.
+- Consequence: These settings strengthen Kafka publication only; they do not make consumer-to-database processing exactly once.
+
+### D-021 — Make one-message test publication synchronous
+
+- Status: Accepted
+- Decision: Enqueue with `produce()`, capture its delivery callback, and call bounded `flush()` before returning a `PublishedRecord`.
+- Reason: The framework needs deterministic per-event evidence for component tests, not maximum producer throughput.
+- Consequence: The wrapper returns topic, partition, offset, timestamp, key, and headers. A production service may later use an asynchronous publishing boundary rather than flushing per request.
+
+### D-022 — Use order ID as key and duplicate contract identity in headers
+
+- Status: Accepted
+- Decision: Encode `order_id` as the Kafka key and publish content type, event type/version, event ID, correlation ID, and causation ID as headers.
+- Reason: The key provides stable per-order partition routing; headers support tracing and filtering without parsing the payload.
+- Consequence: The JSON payload remains the source of truth and the producer constructs both payload and headers from the same typed event.
+
+### D-023 — Make test-layer directories Python packages
+
+- Status: Accepted
+- Decision: Add package markers to `tests`, `tests/unit`, `tests/contracts`, and `tests/integration`.
+- Reason: Unit and integration layers can then use the same descriptive test filename without pytest importing both as one top-level module.
+- Consequence: Test module identity includes its architectural layer, such as `tests.unit.test_kafka_producer`.
+
 ## Verification log
 
 ### Step 1 — Python project bootstrap
@@ -251,6 +280,28 @@ This is the living implementation record for the project. Update it whenever a s
   - UUID and date-time formats are actively checked: Passed
   - Event, correlation, and causation identity roles are demonstrated: Passed
   - Packaged distribution includes the schema: Passed
+
+### Step 5 — Kafka producer client
+
+- Date: 2026-08-12
+- Unit/contract command: `.\.venv\Scripts\python.exe -m pytest -m "unit or contract" -vv`
+- Unit/contract result: Passed — 19 selected tests passed
+- Kafka command: `.\.venv\Scripts\python.exe -m pytest -m "integration and kafka" -vv --junitxml="test-results\step5-kafka.xml"`
+- Kafka result: Passed — 4 selected integration tests passed
+- Delivery evidence: JUnit includes event ID, correlation ID, Kafka partition, and Kafka offset
+- Final command: `.\.venv\Scripts\python.exe -m pytest`
+- Final result: Passed — 23 tests collected, 23 passed in 19.77 seconds
+- Dependency result: `pip check` passed with no broken requirements
+- Cleanup result: No Kafka broker container remained after either integration run
+- Implementation finding: Matching unit and integration filenames collided when test layers were not Python packages. D-023 makes module identity layer-specific.
+- Acceptance criteria:
+  - Contract-valid event is acknowledged by real Kafka: Passed
+  - Idempotence and `acks=all` are explicit: Passed
+  - Order ID is encoded as the Kafka key: Passed
+  - Contract/tracing metadata is encoded as Kafka headers: Passed
+  - Delivery callback failure becomes a diagnostic exception: Passed
+  - Bounded flush reports undelivered count: Passed
+  - Returned evidence contains topic, partition, offset, timestamp, key, and headers: Passed
 
 ## Open decisions
 

@@ -110,6 +110,8 @@ Learning checkpoint: explain why `event_id`, not `correlation_id`, is used for d
 
 ### Step 5 — Build the Kafka producer client
 
+Status: Completed on 2026-08-12. Verification is recorded in [Decisions and Implementation Progress](decisions.md).
+
 Goal: publish controlled events from tests.
 
 Tasks:
