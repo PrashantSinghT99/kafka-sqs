@@ -87,4 +87,4 @@ assert record.event.data.order_id == "ORD-123"
 
 ## Current status
 
-Steps 1–7 are complete. The sample `POST /orders` API now validates input, maps it to a typed event, propagates correlation identity, and exposes a replaceable publisher boundary. Step 8, the complete HTTP-to-Kafka producer component test, is the next implementation gate.
+Steps 1–8 are complete. Producer testing now proves the complete HTTP-to-Kafka boundary without starting the business consumer: positive input is validated through the broker record, while invalid input is proven not to publish within an isolated bounded observation window. Step 9 begins the independent consumer-testing path with PostgreSQL.

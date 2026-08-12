@@ -7,10 +7,10 @@ This is the living implementation record for the project. Update it whenever a s
 | Item | Current value |
 |---|---|
 | Active phase | Phase 2 — Kafka producer testing |
-| Current point | Step 7 — Add the sample producer API completed |
+| Current point | Step 8 — Complete the Kafka producer component test completed |
 | Step status | Completed and verified |
-| Last completed step | Step 7 — Add the sample producer API |
-| Next gate | Step 8 — Complete the Kafka producer component test |
+| Last completed step | Step 8 — Complete the Kafka producer component test |
+| Next gate | Step 9 — Add disposable PostgreSQL and the sample consumer |
 
 ## Repository state
 
@@ -18,7 +18,7 @@ This is the living implementation record for the project. Update it whenever a s
 |---|---|
 | Primary branch | `main` |
 | Remote | `origin` → `https://github.com/PrashantSinghT99/kafka-sqs.git` |
-| Last completed-step reference | Step 7 — `feat: add sample order producer API` |
+| Last completed-step reference | Step 8 — `test: prove API to Kafka producer boundary` |
 | Remote tracking | `main` → `origin/main` |
 | Commit policy | One verified implementation-step commit per completed step |
 
@@ -35,6 +35,7 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-12 | Step 5 — Kafka producer | Completed | 23 tests passed; real broker acknowledgement and delivery evidence verified |
 | 2026-08-12 | Step 6 — Kafka test probe | Completed | 30 tests passed; isolated observation, predicate matching, deadline diagnostics, and cleanup verified |
 | 2026-08-12 | Step 7 — Sample producer API | Completed | 37 tests passed; validation, event mapping, correlation propagation, and publish-failure mapping verified |
+| 2026-08-12 | Step 8 — Producer component test | Completed | 39 tests passed; positive HTTP-to-Kafka record and negative no-publication paths verified |
 
 ## Decision record
 
@@ -241,6 +242,20 @@ This is the living implementation record for the project. Update it whenever a s
 - Reason: Current Starlette documentation identifies HTTPX2 as its maintained `TestClient` dependency. The first successful run with HTTPX emitted a deprecation warning; switching removed it.
 - Consequence: API unit/component tests remain synchronous and warning-free. FastAPI, Uvicorn, HTTPX2, and the Kafka runtime client are pinned explicitly.
 
+### D-030 — Keep the producer component boundary in-process but use a real broker
+
+- Status: Accepted
+- Decision: Drive the FastAPI ASGI application through its HTTP test client, inject the real `KafkaEventProducer`, and observe a disposable real Kafka topic through `KafkaEventProbe`.
+- Reason: The test exercises HTTP parsing, business mapping, serialization, broker acknowledgement, and broker storage without adding port/process management that does not belong to the producer behavior under test.
+- Consequence: Uvicorn transport is covered separately by framework confidence; the component failure surface remains focused on API mapping, Kafka publication, and probe observation.
+
+### D-031 — Make negative publication assertions short and isolated
+
+- Status: Accepted
+- Decision: For invalid API input, start the probe first, call the API, then assert that no event with the test correlation ID appears within one second on the test-owned topic.
+- Reason: “No event” can never be proved with an unbounded wait. A short deadline is meaningful only because the topic and correlation ID belong exclusively to that test.
+- Consequence: The negative test expects both HTTP `422` and a probe timeout with zero observed records; it never consumes from shared application state.
+
 ## Verification log
 
 ### Step 1 — Python project bootstrap
@@ -386,6 +401,23 @@ This is the living implementation record for the project. Update it whenever a s
   - Request maps exactly to the typed `order.created` event: Passed
   - Missing, invalid, or extra request fields never invoke the publisher: Passed
   - Kafka publication failure maps to a sanitized `503`: Passed
+
+### Step 8 — Kafka producer component test
+
+- Date: 2026-08-12
+- Focused command: `.\.venv\Scripts\python.exe -m pytest tests/integration/test_order_producer_component.py -vv --junitxml="test-results\step8-component.xml"`
+- Focused result: Passed — 2 component tests passed in 11.86 seconds
+- Final command: `.\.venv\Scripts\python.exe -m pytest --junitxml="test-results\step8-full.xml"`
+- Final result: Passed — 39 tests collected, 39 passed in 17.85 seconds
+- Dependency result: `pip check` passed with no broken requirements
+- Cleanup result: No Kafka broker container remained after verification
+- Evidence result: JUnit contains probe group, event/correlation IDs, topic, partition, and offset
+- Acceptance criteria:
+  - Positive test proves HTTP request through real broker record: Passed
+  - Destination, key, headers, schema, identifiers, and business payload are asserted: Passed
+  - No business consumer or database is running in the producer test: Passed
+  - Invalid request returns `422` and produces no matching event: Passed
+  - Negative observation is bounded to one second on an isolated topic: Passed
 
 ## Open decisions
 

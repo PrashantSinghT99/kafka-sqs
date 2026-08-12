@@ -180,6 +180,8 @@ Learning checkpoint: identify which assertions belong to API unit tests and whic
 
 ### Step 8 — Complete the Kafka producer component test
 
+Status: Completed on 2026-08-12. Verification is recorded in [Decisions and Implementation Progress](decisions.md).
+
 Goal: verify API action to broker record without involving the business consumer.
 
 Tasks:
@@ -420,4 +422,4 @@ These are deliberately postponed until the baseline is reliable:
 
 ## Immediate next action
 
-Begin Step 8 only: use the real Kafka producer and independent probe around the sample API, then prove both valid publication and the absence of a matching event for invalid input.
+Begin Step 9 only: add disposable PostgreSQL, transactional schema setup, and the sample Kafka consumer that commits its offset only after the database transaction succeeds.
