@@ -226,6 +226,8 @@ Learning checkpoint: draw the two crash windows around database commit and Kafka
 
 ### Step 10 — Build eventual assertions and the consumer component test
 
+Status: Completed on 2026-08-12. Verification is recorded in [Decisions and Implementation Progress](decisions.md).
+
 Goal: verify asynchronous results without fixed sleeps.
 
 Tasks:
@@ -424,4 +426,4 @@ These are deliberately postponed until the baseline is reliable:
 
 ## Immediate next action
 
-Begin Step 10 only: add the reusable bounded `eventually` assertion and refactor the consumer component scenario to run the consumer asynchronously while the test polls PostgreSQL for the observable result.
+Begin Step 11 only: add a disposable downstream HTTP stub, make the consumer call it after order creation, and verify request identity/body plus configurable success and transient failure behavior.

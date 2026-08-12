@@ -87,4 +87,4 @@ assert record.event.data.order_id == "ORD-123"
 
 ## Current status
 
-Steps 1–9 are complete. Consumer testing now publishes a controlled SDK event and verifies transactional PostgreSQL state independently of the API. The sample consumer disables automatic offset progress and commits synchronously only after the database transaction succeeds; a rollback/restart test proves redelivery. Step 10 adds reusable eventual assertions around asynchronous processing.
+Steps 1–10 are complete. The framework includes a reusable bounded `eventually` assertion that returns immediately on success and reports attempts, elapsed time, and last observed state on failure. The consumer component test now runs processing asynchronously and polls PostgreSQL without fixed sleeps. Step 11 adds downstream HTTP interaction verification.

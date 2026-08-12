@@ -7,10 +7,10 @@ This is the living implementation record for the project. Update it whenever a s
 | Item | Current value |
 |---|---|
 | Active phase | Phase 3 — Kafka consumer testing |
-| Current point | Step 9 — Add disposable PostgreSQL and the sample consumer completed |
+| Current point | Step 10 — Build eventual assertions and consumer component test completed |
 | Step status | Completed and verified |
-| Last completed step | Step 9 — Add disposable PostgreSQL and the sample consumer |
-| Next gate | Step 10 — Build eventual assertions and the consumer component test |
+| Last completed step | Step 10 — Build eventual assertions and the consumer component test |
+| Next gate | Step 11 — Add downstream HTTP verification |
 
 ## Repository state
 
@@ -18,7 +18,7 @@ This is the living implementation record for the project. Update it whenever a s
 |---|---|
 | Primary branch | `main` |
 | Remote | `origin` → `https://github.com/PrashantSinghT99/kafka-sqs.git` |
-| Last completed-step reference | Step 9 — `feat: add transactional Kafka order consumer` |
+| Last completed-step reference | Step 10 — `test: add eventual consumer assertions` |
 | Remote tracking | `main` → `origin/main` |
 | Commit policy | One verified implementation-step commit per completed step |
 
@@ -37,6 +37,7 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-12 | Step 7 — Sample producer API | Completed | 37 tests passed; validation, event mapping, correlation propagation, and publish-failure mapping verified |
 | 2026-08-12 | Step 8 — Producer component test | Completed | 39 tests passed; positive HTTP-to-Kafka record and negative no-publication paths verified |
 | 2026-08-12 | Step 9 — Transactional order consumer | Completed | 44 tests passed; Kafka-to-PostgreSQL state, rollback, redelivery, and post-DB offset commit verified |
+| 2026-08-12 | Step 10 — Eventual consumer assertions | Completed | 50 tests passed; immediate/retry/timeout polling and asynchronous Kafka-to-PostgreSQL component flow verified |
 
 ## Decision record
 
@@ -278,6 +279,20 @@ This is the living implementation record for the project. Update it whenever a s
 - Reason: Function-owned schemas prevent cross-test data collisions while avoiding the startup cost of a database container per case.
 - Consequence: Integration evidence includes the schema name, and cleanup removes all test tables even after a failure.
 
+### D-035 — Centralize bounded polling in `eventually`
+
+- Status: Accepted
+- Decision: Implement one generic observer/predicate helper using a monotonic deadline, immediate first observation, configurable polling interval, and a structured `EventuallyTimeout` assertion.
+- Reason: Asynchronous tests should finish as soon as state appears and should fail with the last real evidence instead of waiting a fixed duration or looping forever.
+- Consequence: Timeout evidence exposes description, attempt count, elapsed seconds, and last observed value. Test code contains no fixed `sleep()` synchronization.
+
+### D-036 — Run the consumer independently from state observation
+
+- Status: Accepted
+- Decision: Execute the blocking one-record consumer on a worker thread, publish through the SDK, and poll PostgreSQL from the test thread until the business row exists.
+- Reason: This matches the real asynchronous relationship while keeping the consumer implementation deterministic and avoiding a permanent service process in component tests.
+- Consequence: The test separately awaits the consumer result to prove the post-database Kafka commit also completed; database visibility alone is not treated as offset-commit evidence.
+
 ## Verification log
 
 ### Step 1 — Python project bootstrap
@@ -461,6 +476,26 @@ This is the living implementation record for the project. Update it whenever a s
   - Kafka offset commit occurs synchronously after database success: Passed
   - Forced second-insert failure rolls back the first insert: Passed
   - Same consumer group receives the rolled-back event again after restart: Passed
+
+### Step 10 — Eventual assertions and consumer component test
+
+- Date: 2026-08-12
+- Helper command: `.\.venv\Scripts\python.exe -m pytest tests/unit/test_eventually.py -vv`
+- Helper result: Passed — 5 unit tests passed
+- Focused command: `.\.venv\Scripts\python.exe -m pytest tests/integration/test_order_consumer_eventually.py -vv --junitxml="test-results\step10-consumer.xml"`
+- Focused result: Passed — asynchronous consumer component test passed in 12.89 seconds
+- Final command: `.\.venv\Scripts\python.exe -m pytest --junitxml="test-results\step10-full.xml"`
+- Final result: Passed — 50 tests collected, 50 passed in 25.40 seconds
+- Dependency result: `pip check` passed with no broken requirements
+- Cleanup result: No Kafka or PostgreSQL test container remained after verification
+- Source scan result: No test contains `time.sleep()` or imports `sleep` for synchronization
+- Acceptance criteria:
+  - First matching observation returns without an initial delay: Passed
+  - Later matching observation is retried and returned: Passed
+  - Missing state fails within its deadline: Passed
+  - Failure includes attempts, elapsed time, and last value: Passed
+  - SDK event is processed asynchronously into complete PostgreSQL state: Passed
+  - Consumer completion separately proves offset commit completed: Passed
 
 ## Open decisions
 
