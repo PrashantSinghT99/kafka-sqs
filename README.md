@@ -87,4 +87,4 @@ assert record.event.data.order_id == "ORD-123"
 
 ## Current status
 
-Steps 1–15 are complete. A pinned LocalStack SQS service now provides function-owned standard, FIFO, and DLQ queues with explicit visibility, long-poll, redrive, group, and deduplication settings. Queue names preserve unique role identity even when long pytest IDs are truncated. Step 16 adds SQS producer and consumer component tests.
+Steps 1–16 are complete. The same producer/consumer strategy now runs through boto3: the API publishes a contract event with SQS message attributes to a test-owned queue, and an SDK-published event creates PostgreSQL state before its receipt handle is deleted. SQS probes are explicitly limited to owned queues because receive operations hide messages. Step 17 covers SQS reliability semantics.

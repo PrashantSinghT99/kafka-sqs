@@ -359,6 +359,8 @@ Learning checkpoint: explain why an SQS test probe can steal/hide a message whil
 
 ### Step 16 — Implement SQS producer and consumer component tests
 
+Status: Completed on 2026-08-12. Verification is recorded in [Decisions and Implementation Progress](decisions.md).
+
 Goal: run the common business scenarios through SQS-specific clients.
 
 Tasks:
@@ -436,4 +438,4 @@ These are deliberately postponed until the baseline is reliable:
 
 ## Immediate next action
 
-Begin Step 16 only: build boto3 publisher/receiver adapters, prove the API-to-owned-queue producer boundary, and prove an SDK event creates the expected consumer database effect with deletion only after success.
+Begin Step 17 only: prove visibility-timeout redelivery and receive count, poison redrive to DLQ, FIFO per-group order, and deduplication behavior while retaining business idempotency assumptions.

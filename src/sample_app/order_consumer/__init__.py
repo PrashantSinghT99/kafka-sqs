@@ -21,6 +21,7 @@ from sample_app.order_consumer.reliability import (
     KafkaDeadLetterPublisher,
     RetryPolicy,
 )
+from sample_app.order_consumer.sqs_consumer import SqsOrderConsumer
 
 __all__ = [
     "ConsumerSettings",
@@ -35,5 +36,6 @@ __all__ = [
     "PostgresOrderStore",
     "ProcessedKafkaRecord",
     "RetryPolicy",
+    "SqsOrderConsumer",
     "StoredOrder",
 ]
