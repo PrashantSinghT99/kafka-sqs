@@ -7,10 +7,10 @@ This is the living implementation record for the project. Update it whenever a s
 | Item | Current value |
 |---|---|
 | Active phase | Phase 5 — SQS |
-| Current point | Step 16 — Implement SQS producer and consumer component tests completed |
+| Current point | Step 17 — Add SQS reliability scenarios completed |
 | Step status | Completed and verified |
-| Last completed step | Step 16 — Implement SQS producer and consumer component tests |
-| Next gate | Step 17 — Add SQS reliability scenarios |
+| Last completed step | Step 17 — Add SQS reliability scenarios |
+| Next gate | Step 18 — Add continuous integration and evidence |
 
 ## Repository state
 
@@ -18,7 +18,7 @@ This is the living implementation record for the project. Update it whenever a s
 |---|---|
 | Primary branch | `main` |
 | Remote | `origin` → `https://github.com/PrashantSinghT99/kafka-sqs.git` |
-| Last completed-step reference | Step 16 — `feat: add SQS producer and consumer components` |
+| Last completed-step reference | Step 17 — `test: prove SQS reliability semantics` |
 | Remote tracking | `main` → `origin/main` |
 | Commit policy | One verified implementation-step commit per completed step |
 
@@ -44,6 +44,7 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-12 | Step 14 — Kafka ordering/recovery/transactions | Completed | 66 tests passed; partition ordering, group restart, and committed-transaction visibility verified |
 | 2026-08-12 | Step 15 — LocalStack SQS resources | Completed | 70 tests passed; standard/FIFO/DLQ attributes, redrive wiring, unique naming, and cleanup verified |
 | 2026-08-12 | Step 16 — SQS component tests | Completed | 72 tests passed; API-to-queue attributes and SDK-to-database deletion-after-success flow verified |
+| 2026-08-12 | Step 17 — SQS reliability | Completed | 75 tests passed; visibility/redelivery, receive count, redrive, FIFO order, and deduplication verified |
 
 ## Decision record
 
@@ -383,6 +384,13 @@ This is the living implementation record for the project. Update it whenever a s
 - Reason: Delete is SQS acknowledgement. Deleting before the database transaction could lose the event; not deleting after failure lets visibility expiry make it eligible for redelivery.
 - Consequence: The component test proves database state exists and the queue is empty after success. Step 17 directly tests the no-delete redelivery path.
 
+### D-049 — Test SQS delivery controls without calling them idempotency
+
+- Status: Accepted
+- Decision: Verify visibility, receive count, redrive, FIFO message-group order, and FIFO deduplication ID as distinct queue behaviors.
+- Reason: Visibility controls competition, deletion acknowledges, redrive isolates poison messages, FIFO groups scope ordering, and deduplication suppresses sends only within its supported window. None alone makes business side effects idempotent.
+- Consequence: Tests make each mechanism observable and still retain database event-ID idempotency in the consumer design.
+
 ## Verification log
 
 ### Step 1 — Python project bootstrap
@@ -702,6 +710,23 @@ This is the living implementation record for the project. Update it whenever a s
   - SDK event creates complete PostgreSQL consumer state: Passed
   - Receipt handle is deleted only after successful state completion: Passed
   - Queue is empty after successful consumer acknowledgement: Passed
+
+### Step 17 — SQS reliability scenarios
+
+- Date: 2026-08-12
+- Focused command: `.\.venv\Scripts\python.exe -m pytest tests/integration/test_sqs_reliability.py -vv --junitxml="test-results\step17-sqs.xml"`
+- Focused result: Passed — 3 SQS reliability tests passed in 10.71 seconds
+- Final command: `.\.venv\Scripts\python.exe -m pytest --junitxml="test-results\step17-full.xml"`
+- Final result: Passed — 75 tests collected, 75 passed in 59.60 seconds
+- Dependency result: `pip check` passed
+- Cleanup result: All LocalStack/Kafka/PostgreSQL containers and owned resources were cleaned
+- Acceptance criteria:
+  - Receive without delete hides message during visibility timeout: Passed
+  - Message reappears with increased approximate receive count: Passed
+  - Repeated poison receives redrive to the owned DLQ: Passed
+  - FIFO order is preserved within one message group: Passed
+  - Reused FIFO deduplication ID suppresses the duplicate send: Passed
+  - Received messages are explicitly deleted during test-owned cleanup: Passed
 
 ## Open decisions
 

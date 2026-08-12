@@ -382,6 +382,8 @@ Learning checkpoint: compare Kafka offset commit with SQS message deletion.
 
 ### Step 17 — Add SQS reliability scenarios
 
+Status: Completed on 2026-08-12. Verification is recorded in [Decisions and Implementation Progress](decisions.md).
+
 Goal: validate queue-specific failure behavior.
 
 Tasks:
@@ -438,4 +440,4 @@ These are deliberately postponed until the baseline is reliable:
 
 ## Immediate next action
 
-Begin Step 17 only: prove visibility-timeout redelivery and receive count, poison redrive to DLQ, FIFO per-group order, and deduplication behavior while retaining business idempotency assumptions.
+Begin Step 18 only: split CI into fast and Docker-backed suites, publish JUnit evidence, enforce job timeouts, document runner requirements, and validate workflow syntax plus all local test gates.

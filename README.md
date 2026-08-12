@@ -87,4 +87,4 @@ assert record.event.data.order_id == "ORD-123"
 
 ## Current status
 
-Steps 1–16 are complete. The same producer/consumer strategy now runs through boto3: the API publishes a contract event with SQS message attributes to a test-owned queue, and an SDK-published event creates PostgreSQL state before its receipt handle is deleted. SQS probes are explicitly limited to owned queues because receive operations hide messages. Step 17 covers SQS reliability semantics.
+Steps 1–17 are complete. SQS reliability tests now prove visibility-timeout redelivery with increasing receive count, redrive after repeated receives, FIFO order within one message group, and deduplication-ID suppression. These broker features reduce duplicate exposure but do not replace business idempotency. Step 18 adds CI and durable test evidence.
