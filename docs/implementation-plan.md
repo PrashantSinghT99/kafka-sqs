@@ -86,6 +86,8 @@ Learning checkpoint: explain why an offset is only meaningful with its topic and
 
 ### Step 4 — Define the event contract
 
+Status: Completed on 2026-08-12. Verification is recorded in [Decisions and Implementation Progress](decisions.md).
+
 Goal: create a consistent, testable message envelope.
 
 Tasks:

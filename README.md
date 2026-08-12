@@ -59,4 +59,4 @@ python -m pytest -m "integration and sqs"
 
 ## Current status
 
-Steps 1–3 are complete. The framework now starts disposable Kafka and gives each test a unique three-partition topic with verified metadata, JUnit evidence, and synchronous cleanup. Step 4, the `order.created` event contract, is the next implementation gate.
+Steps 1–4 are complete. The framework now includes a strict typed `order.created` version 1 model, packaged Draft 2020-12 JSON Schema, deterministic event factory, and field-level contract diagnostics. Step 5, the Kafka producer client, is the next implementation gate.

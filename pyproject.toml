@@ -12,7 +12,10 @@ license = { text = "MIT" }
 authors = [
   { name = "Kafka and SQS Learning Project" },
 ]
-dependencies = []
+dependencies = [
+  "jsonschema[format-nongpl]==4.26.0",
+  "pydantic==2.13.4",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -23,6 +26,9 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"mqtest.contracts" = ["schemas/*.json"]
 
 [tool.pytest.ini_options]
 minversion = "8.2"

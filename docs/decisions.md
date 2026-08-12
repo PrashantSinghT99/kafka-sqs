@@ -7,10 +7,10 @@ This is the living implementation record for the project. Update it whenever a s
 | Item | Current value |
 |---|---|
 | Active phase | Phase 1 — Kafka foundation |
-| Current point | Step 3 — Provision isolated topics completed |
+| Current point | Step 4 — Define the event contract completed |
 | Step status | Completed and verified |
-| Last completed step | Step 3 — Provision isolated topics |
-| Next gate | Step 4 — Define the event contract |
+| Last completed step | Step 4 — Define the event contract |
+| Next gate | Step 5 — Build the Kafka producer client |
 
 ## Repository state
 
@@ -18,8 +18,8 @@ This is the living implementation record for the project. Update it whenever a s
 |---|---|
 | Primary branch | `main` |
 | Remote | `origin` → `https://github.com/PrashantSinghT99/kafka-sqs.git` |
-| Last completed-step commit | `2fa78a2` — `feat: establish Kafka testing foundation (steps 1-3)` |
-| Push status | `main` tracks `origin/main`; baseline pushed successfully |
+| Last completed-step reference | Step 4 — `feat: add versioned order event contract` |
+| Remote tracking | `main` → `origin/main` |
 | Commit policy | One verified implementation-step commit per completed step |
 
 ## Milestone history
@@ -31,6 +31,7 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-12 | Step 2 — Disposable Kafka | Completed | Full suite: 4 passed; Kafka AdminClient connected; container removed after test |
 | 2026-08-12 | Step 3 — Isolated topics | Completed | Full suite: 10 passed; metadata evidence verified; topic and broker cleanup passed |
 | 2026-08-12 | Git baseline for Steps 1–3 | Completed | Commit `2fa78a2` pushed to `origin/main` |
+| 2026-08-12 | Step 4 — Event contract | Completed | 17 tests passed; schema format checks and wheel packaging verified |
 
 ## Decision record
 
@@ -146,6 +147,27 @@ This is the living implementation record for the project. Update it whenever a s
 - Reason: Step-level commits make the learning progression reviewable, reversible, and easy to compare.
 - Consequence: A step is not considered fully delivered until tests pass, its decision entry is current, and its commit message/reference is recorded. Commit hashes remain available through Git history without creating a self-referential documentation update. Steps 1–3 predate this policy and are captured in one explicit baseline commit.
 
+### D-017 — Use Pydantic for typed models and JSON Schema for the wire contract
+
+- Status: Accepted
+- Decision: Pin `pydantic==2.13.4` and `jsonschema[format-nongpl]==4.26.0` as core dependencies.
+- Reason: Pydantic gives application code strict typed objects, while Draft 2020-12 JSON Schema provides a language-neutral contract for producers and consumers. Both layers test different boundaries.
+- Consequence: The model and schema must remain aligned; contract tests validate model-generated wire payloads against the packaged schema.
+
+### D-018 — Version the contract in both type and schema
+
+- Status: Accepted
+- Decision: Define `OrderCreatedEvent` with literal `event_type="order.created"`, literal `event_version=1`, and a packaged `order-created-v1.json` schema.
+- Reason: Explicit versions make unsupported changes fail clearly and provide a path for side-by-side evolution.
+- Consequence: A future incompatible version receives a new model/schema instead of silently widening version 1.
+
+### D-019 — Reject coercion and unknown fields
+
+- Status: Accepted
+- Decision: Configure typed models as strict with `extra="forbid"`, and set `additionalProperties=false` throughout the JSON Schema.
+- Reason: Message contracts should expose producer mistakes rather than coerce values such as the string `"500.00"` into a number or ignore misspelled fields.
+- Consequence: Contract failures include JSON-style field paths and all schema violations observed in one validation pass.
+
 ## Verification log
 
 ### Step 1 — Python project bootstrap
@@ -207,13 +229,35 @@ This is the living implementation record for the project. Update it whenever a s
   - Topic deletion is synchronously verified: Passed
   - Full suite and infrastructure cleanup pass: Passed
 
+### Step 4 — Versioned event contract
+
+- Date: 2026-08-12
+- Dependencies: `pydantic==2.13.4`, `jsonschema[format-nongpl]==4.26.0`
+- Contract suite command: `.\.venv\Scripts\python.exe -m pytest -m "unit or contract" -vv`
+- Contract suite result: Passed — 14 selected tests passed
+- Dependency command: `.\.venv\Scripts\python.exe -m pip check`
+- Dependency result: Passed — no broken requirements
+- Full-suite command: `.\.venv\Scripts\python.exe -m pytest --junitxml="test-results\step4.xml"`
+- Full-suite result: Passed — 17 tests collected, 17 passed in 19.60 seconds
+- Package command: `.\.venv\Scripts\python.exe -m pip wheel --no-deps --wheel-dir "test-results" .`
+- Package result: Passed — wheel built through isolated PEP 517 build; `mqtest/contracts/schemas/order-created-v1.json` is included
+- Cleanup result: No Kafka broker container remained after the full suite
+- Packaging note: A diagnostic `--no-build-isolation` attempt failed because the virtual environment intentionally did not contain the build-only `setuptools` requirement. The declared isolated build installed it and succeeded; runtime dependencies were unaffected.
+- Acceptance criteria:
+  - Valid typed events serialize and satisfy JSON Schema: Passed
+  - Missing required fields report JSON field paths: Passed
+  - Wrong nested types report the affected field: Passed
+  - Unsupported event versions are rejected: Passed
+  - UUID and date-time formats are actively checked: Passed
+  - Event, correlation, and causation identity roles are demonstrated: Passed
+  - Packaged distribution includes the schema: Passed
+
 ## Open decisions
 
 These decisions are intentionally deferred until their implementation step:
 
 | Decision | Target step | Why deferred |
 |---|---|---|
-| JSON model/validation library | Step 4 | Compare standard JSON Schema validation with typed-model needs |
 | Sample HTTP framework | Step 7 | Select only when the producer API is implemented |
 | PostgreSQL client and migration method | Step 9 | Select alongside transactional idempotency design |
 | HTTP stub product | Step 11 | Select based on Python Testcontainers support and verification API |
