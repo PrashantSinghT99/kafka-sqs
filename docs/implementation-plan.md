@@ -337,6 +337,8 @@ Learning checkpoint: explain the relationship among key, partition, offset, and 
 
 ### Step 15 — Start LocalStack and provision isolated queues
 
+Status: Completed on 2026-08-12. Verification is recorded in [Decisions and Implementation Progress](decisions.md).
+
 Goal: introduce SQS without reusing Kafka assumptions.
 
 Tasks:
@@ -434,4 +436,4 @@ These are deliberately postponed until the baseline is reliable:
 
 ## Immediate next action
 
-Begin Step 15 only: start pinned LocalStack, provision function-owned standard/FIFO/DLQ queues with explicit attributes, and prove boto3 connectivity and cleanup without reusing Kafka semantics.
+Begin Step 16 only: build boto3 publisher/receiver adapters, prove the API-to-owned-queue producer boundary, and prove an SDK event creates the expected consumer database effect with deletion only after success.

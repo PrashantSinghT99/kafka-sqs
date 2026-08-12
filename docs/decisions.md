@@ -6,11 +6,11 @@ This is the living implementation record for the project. Update it whenever a s
 
 | Item | Current value |
 |---|---|
-| Active phase | Phase 3 — Kafka consumer testing |
-| Current point | Step 14 — Add ordering, recovery, and transaction scenarios completed |
+| Active phase | Phase 5 — SQS |
+| Current point | Step 15 — Start LocalStack and provision isolated queues completed |
 | Step status | Completed and verified |
-| Last completed step | Step 14 — Add ordering, recovery, and transaction scenarios |
-| Next gate | Step 15 — Start LocalStack and provision isolated queues |
+| Last completed step | Step 15 — Start LocalStack and provision isolated queues |
+| Next gate | Step 16 — Implement SQS producer and consumer component tests |
 
 ## Repository state
 
@@ -18,7 +18,7 @@ This is the living implementation record for the project. Update it whenever a s
 |---|---|
 | Primary branch | `main` |
 | Remote | `origin` → `https://github.com/PrashantSinghT99/kafka-sqs.git` |
-| Last completed-step reference | Step 14 — `test: prove Kafka ordering recovery and transactions` |
+| Last completed-step reference | Step 15 — `feat: add isolated LocalStack SQS resources` |
 | Remote tracking | `main` → `origin/main` |
 | Commit policy | One verified implementation-step commit per completed step |
 
@@ -42,6 +42,7 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-12 | Step 12 — Consumer idempotency | Completed | 57 tests passed; duplicate suppression, pending-effect recovery, and correlation-ID reuse verified |
 | 2026-08-12 | Step 13 — Retry and DLQ | Completed | 62 tests passed; classified retries, poison cleanup, DLQ evidence, and later-record continuation verified |
 | 2026-08-12 | Step 14 — Kafka ordering/recovery/transactions | Completed | 66 tests passed; partition ordering, group restart, and committed-transaction visibility verified |
+| 2026-08-12 | Step 15 — LocalStack SQS resources | Completed | 70 tests passed; standard/FIFO/DLQ attributes, redrive wiring, unique naming, and cleanup verified |
 
 ## Decision record
 
@@ -353,6 +354,20 @@ This is the living implementation record for the project. Update it whenever a s
 - Reason: Kafka's production-oriented transaction-state defaults expect multiple brokers and caused coordinator initialization to time out in the focused test.
 - Consequence: Transactional tests work on the learning broker; this configuration is explicitly unsuitable as a production availability recommendation.
 
+### D-045 — Use pinned LocalStack and fake local AWS identity
+
+- Status: Accepted
+- Decision: Run `localstack/localstack:3.5.0` through Testcontainers with only SQS enabled and use the container-created boto3 client with non-production credentials/endpoint.
+- Reason: SQS semantics require a real compatible service API without storing cloud credentials or creating paid/shared resources.
+- Consequence: Local tests never contact AWS. Boto3 is pinned as the production SQS SDK adapter and LocalStack remains a development dependency.
+
+### D-046 — Give every SQS test its own queue family
+
+- Status: Accepted
+- Decision: Provision function-scoped standard, FIFO, and DLQ queues with two-second visibility, one-second long polling, standard-to-DLQ redrive after three receives, and explicit FIFO deduplication settings.
+- Reason: Unlike Kafka consumer groups, receiving from SQS hides a message from competitors. An observer test must own the queue it receives from.
+- Consequence: Queue URLs appear in JUnit evidence and all three queues are deleted after each test. Naming always preserves hash/random suffixes under AWS's 80-character limit.
+
 ## Verification log
 
 ### Step 1 — Python project bootstrap
@@ -634,6 +649,27 @@ This is the living implementation record for the project. Update it whenever a s
   - Same consumer group resumes after its committed record on restart: Passed
   - `read_committed` sees committed transactional record: Passed
   - `read_committed` excludes aborted transactional record: Passed
+
+### Step 15 — LocalStack and isolated SQS queues
+
+- Date: 2026-08-12
+- Infrastructure/runtime: `localstack/localstack:3.5.0`, boto3 `1.43.53`
+- Focused command: `.\.venv\Scripts\python.exe -m pytest tests/integration/test_sqs_resources.py -vv --junitxml="test-results\step15-sqs.xml"`
+- Focused result: Passed — SQS resource test passed in 6.91 seconds
+- Final command: `.\.venv\Scripts\python.exe -m pytest --junitxml="test-results\step15-full.xml"`
+- Final result: Passed — 70 tests collected, 70 passed in 55.92 seconds
+- Dependency result: Editable install and `pip check` passed
+- Cleanup result: LocalStack, Kafka, and PostgreSQL containers/resources were cleaned
+- Implementation finding: Initial long resource names truncated away role/unique suffixes and collided. The generator now truncates only the readable middle and unit tests preserve identity.
+- Known upstream warning: Testcontainers `4.14.2` LocalStack module uses its deprecated internal `wait_for_logs` helper; this does not affect queue behavior or cleanup.
+- Acceptance criteria:
+  - Pinned LocalStack starts automatically with SQS: Passed
+  - Each test owns standard, FIFO, and DLQ queues: Passed
+  - Visibility and receive long-poll attributes are explicit: Passed
+  - Standard queue redrive targets its owned DLQ after three receives: Passed
+  - FIFO queue type and deduplication mode are explicit: Passed
+  - boto3 lists all created queue URLs: Passed
+  - Queue family and container are cleaned: Passed
 
 ## Open decisions
 

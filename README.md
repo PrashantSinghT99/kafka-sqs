@@ -87,4 +87,4 @@ assert record.event.data.order_id == "ORD-123"
 
 ## Current status
 
-Steps 1–14 are complete. Kafka-specific guarantees are now demonstrated: same-key records share a partition and increase offsets in order, cross-partition offsets are never treated as global order, a restarted group resumes after its committed record, and a `read_committed` probe excludes aborted transactions. Step 15 begins SQS with LocalStack and isolated queues.
+Steps 1–15 are complete. A pinned LocalStack SQS service now provides function-owned standard, FIFO, and DLQ queues with explicit visibility, long-poll, redrive, group, and deduplication settings. Queue names preserve unique role identity even when long pytest IDs are truncated. Step 16 adds SQS producer and consumer component tests.

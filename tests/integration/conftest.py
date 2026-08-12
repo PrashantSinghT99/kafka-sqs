@@ -8,6 +8,7 @@ from uuid import uuid4
 
 import pytest
 from testcontainers.kafka import KafkaContainer
+from testcontainers.localstack import LocalStackContainer
 from testcontainers.postgres import PostgresContainer
 
 from mqtest.infrastructure import POSTGRES_IMAGE
@@ -20,6 +21,7 @@ from mqtest.kafka import (
     TopicSpec,
     unique_topic_name,
 )
+from mqtest.sqs import LOCALSTACK_IMAGE, SqsQueueSet, SqsTestResources
 from sample_app.order_consumer import PostgresOrderStore
 
 
@@ -154,3 +156,54 @@ def order_store(postgres_dsn: str) -> Iterator[PostgresOrderStore]:
         yield store
     finally:
         store.drop_schema()
+
+
+@pytest.fixture(scope="session")
+def localstack_container() -> Iterator[LocalStackContainer]:
+    """Start pinned SQS-compatible LocalStack with no real AWS credentials."""
+    try:
+        require_docker()
+    except DockerUnavailableError as exc:
+        pytest.fail(str(exc), pytrace=False)
+
+    container = LocalStackContainer(image=LOCALSTACK_IMAGE).with_services("sqs")
+    try:
+        container.start()
+    except Exception as exc:
+        with suppress(Exception):
+            container.stop()
+        pytest.fail(
+            f"LocalStack image {LOCALSTACK_IMAGE!r} failed to start: {exc}",
+            pytrace=True,
+        )
+    try:
+        yield container
+    finally:
+        container.stop()
+
+
+@pytest.fixture(scope="session")
+def sqs_client(localstack_container: LocalStackContainer):
+    """Expose boto3 SQS configured only for the disposable local endpoint."""
+    return localstack_container.get_client("sqs")
+
+
+@pytest.fixture
+def sqs_queues(
+    request: pytest.FixtureRequest,
+    sqs_client,
+) -> Iterator[SqsQueueSet]:
+    """Give one test its own standard, FIFO, and DLQ queue family."""
+    resources = SqsTestResources(sqs_client)
+    queues = resources.create_queue_set(request.node.nodeid)
+    request.node.user_properties.extend(
+        [
+            ("sqs_standard_url", queues.standard_url),
+            ("sqs_fifo_url", queues.fifo_url),
+            ("sqs_dlq_url", queues.dlq_url),
+        ]
+    )
+    try:
+        yield queues
+    finally:
+        resources.delete_queue_set(queues)
