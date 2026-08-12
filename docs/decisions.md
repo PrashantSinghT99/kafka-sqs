@@ -10,7 +10,7 @@ This is the living implementation record for the project. Update it whenever a s
 | Current point | Step 3 — Provision isolated topics completed |
 | Step status | Completed and verified |
 | Last completed step | Step 3 — Provision isolated topics |
-| Next gate | Push the Steps 1–3 baseline, then Step 4 — Define the event contract |
+| Next gate | Step 4 — Define the event contract |
 
 ## Repository state
 
@@ -18,7 +18,8 @@ This is the living implementation record for the project. Update it whenever a s
 |---|---|
 | Primary branch | `main` |
 | Remote | `origin` → `https://github.com/PrashantSinghT99/kafka-sqs.git` |
-| Last completed-step reference | Steps 1–3 baseline: `feat: establish Kafka testing foundation (steps 1-3)` |
+| Last completed-step commit | `2fa78a2` — `feat: establish Kafka testing foundation (steps 1-3)` |
+| Push status | `main` tracks `origin/main`; baseline pushed successfully |
 | Commit policy | One verified implementation-step commit per completed step |
 
 ## Milestone history
@@ -29,6 +30,7 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-12 | Step 1 — Python project bootstrap | Completed | Clean `.venv` editable install; 1 unit test passed; 1 test collected |
 | 2026-08-12 | Step 2 — Disposable Kafka | Completed | Full suite: 4 passed; Kafka AdminClient connected; container removed after test |
 | 2026-08-12 | Step 3 — Isolated topics | Completed | Full suite: 10 passed; metadata evidence verified; topic and broker cleanup passed |
+| 2026-08-12 | Git baseline for Steps 1–3 | Completed | Commit `2fa78a2` pushed to `origin/main` |
 
 ## Decision record
 
