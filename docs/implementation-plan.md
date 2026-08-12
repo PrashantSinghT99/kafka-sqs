@@ -314,6 +314,8 @@ Learning checkpoint: classify validation, transient dependency, and permanent bu
 
 ### Step 14 — Add ordering, recovery, and transaction scenarios
 
+Status: Completed on 2026-08-12. Verification is recorded in [Decisions and Implementation Progress](decisions.md).
+
 Goal: exercise Kafka-specific reliability guarantees.
 
 Tasks:
@@ -432,4 +434,4 @@ These are deliberately postponed until the baseline is reliable:
 
 ## Immediate next action
 
-Begin Step 14 only: prove same-key partition ordering, avoid cross-key global-order assumptions, verify restart from committed offsets, and demonstrate that a `read_committed` probe excludes aborted transactional records.
+Begin Step 15 only: start pinned LocalStack, provision function-owned standard/FIFO/DLQ queues with explicit attributes, and prove boto3 connectivity and cleanup without reusing Kafka semantics.

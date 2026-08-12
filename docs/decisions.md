@@ -7,10 +7,10 @@ This is the living implementation record for the project. Update it whenever a s
 | Item | Current value |
 |---|---|
 | Active phase | Phase 3 — Kafka consumer testing |
-| Current point | Step 13 — Add retry and DLQ behavior completed |
+| Current point | Step 14 — Add ordering, recovery, and transaction scenarios completed |
 | Step status | Completed and verified |
-| Last completed step | Step 13 — Add retry and DLQ behavior |
-| Next gate | Step 14 — Add ordering, recovery, and transaction scenarios |
+| Last completed step | Step 14 — Add ordering, recovery, and transaction scenarios |
+| Next gate | Step 15 — Start LocalStack and provision isolated queues |
 
 ## Repository state
 
@@ -18,7 +18,7 @@ This is the living implementation record for the project. Update it whenever a s
 |---|---|
 | Primary branch | `main` |
 | Remote | `origin` → `https://github.com/PrashantSinghT99/kafka-sqs.git` |
-| Last completed-step reference | Step 13 — `feat: add consumer retry and dead-letter policy` |
+| Last completed-step reference | Step 14 — `test: prove Kafka ordering recovery and transactions` |
 | Remote tracking | `main` → `origin/main` |
 | Commit policy | One verified implementation-step commit per completed step |
 
@@ -41,6 +41,7 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-12 | Step 11 — Downstream HTTP verification | Completed | 53 tests passed; request contract and scripted temporary-failure recovery verified through a real HTTP stub |
 | 2026-08-12 | Step 12 — Consumer idempotency | Completed | 57 tests passed; duplicate suppression, pending-effect recovery, and correlation-ID reuse verified |
 | 2026-08-12 | Step 13 — Retry and DLQ | Completed | 62 tests passed; classified retries, poison cleanup, DLQ evidence, and later-record continuation verified |
+| 2026-08-12 | Step 14 — Kafka ordering/recovery/transactions | Completed | 66 tests passed; partition ordering, group restart, and committed-transaction visibility verified |
 
 ## Decision record
 
@@ -338,6 +339,20 @@ This is the living implementation record for the project. Update it whenever a s
 - Reason: This leaves no partial business state and lets the partition continue. If DLQ publication fails, the original offset is not committed and Kafka can redeliver the source event.
 - Consequence: DLQ evidence includes source topic/partition/offset/key, event/correlation IDs, attempts, error type/message, timestamp, and original payload. A later valid same-key record is processed after the poison record.
 
+### D-043 — Scope Kafka ordering assertions to a partition
+
+- Status: Accepted
+- Decision: Assert that identical keys select one partition and offsets increase there. For different keys, group evidence by partition and never compare offsets across partitions.
+- Reason: Kafka ordering and offsets are partition-local; presenting a topic-wide sequence would teach a false guarantee.
+- Consequence: Same-key order is directly verified, while the cross-key test proves distribution and only partition-local monotonicity.
+
+### D-044 — Configure transaction state for the single test broker
+
+- Status: Accepted
+- Decision: Set transaction-state replication factor and minimum ISR to one only on the disposable single-broker Kafka fixture.
+- Reason: Kafka's production-oriented transaction-state defaults expect multiple brokers and caused coordinator initialization to time out in the focused test.
+- Consequence: Transactional tests work on the learning broker; this configuration is explicitly unsuitable as a production availability recommendation.
+
 ## Verification log
 
 ### Step 1 — Python project bootstrap
@@ -601,6 +616,24 @@ This is the living implementation record for the project. Update it whenever a s
   - Poison partial database state is removed: Passed
   - Poison source offset is committed only after DLQ acknowledgement: Passed
   - Later same-key valid event continues and creates the only business row: Passed
+
+### Step 14 — Kafka ordering, recovery, and transactions
+
+- Date: 2026-08-12
+- Focused command: `.\.venv\Scripts\python.exe -m pytest tests/integration/test_kafka_ordering_recovery_transactions.py -vv --junitxml="test-results\step14-kafka.xml"`
+- Focused result: Passed — 4 reliability tests passed in 26.03 seconds
+- Final command: `.\.venv\Scripts\python.exe -m pytest --junitxml="test-results\step14-full.xml"`
+- Final result: Passed — 66 tests collected, 66 passed in 51.56 seconds
+- Dependency result: `pip check` passed
+- Cleanup result: Kafka and PostgreSQL containers/resources were cleaned
+- Implementation finding: Initial transaction coordinator setup timed out because the one-broker fixture inherited multi-broker transaction-state defaults. D-044 records the isolated test fix.
+- Acceptance criteria:
+  - Same-key events use one partition and increasing offsets: Passed
+  - Probe observes same-key events in publication order: Passed
+  - Different-key ordering assertions remain partition-scoped: Passed
+  - Same consumer group resumes after its committed record on restart: Passed
+  - `read_committed` sees committed transactional record: Passed
+  - `read_committed` excludes aborted transactional record: Passed
 
 ## Open decisions
 

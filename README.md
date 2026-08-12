@@ -87,4 +87,4 @@ assert record.event.data.order_id == "ORD-123"
 
 ## Current status
 
-Steps 1–13 are complete. Reliability policy now declares retryable errors, attempt count, and backoff. Transient HTTP failure recovers deterministically; exhausted poison processing removes partial state, publishes original identifiers/payload plus failure metadata to an isolated DLQ, commits the poison offset, and allows a later valid record to continue. Step 14 covers Kafka ordering, recovery, and transaction visibility.
+Steps 1–14 are complete. Kafka-specific guarantees are now demonstrated: same-key records share a partition and increase offsets in order, cross-partition offsets are never treated as global order, a restarted group resumes after its committed record, and a `read_committed` probe excludes aborted transactions. Step 15 begins SQS with LocalStack and isolated queues.

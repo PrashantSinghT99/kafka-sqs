@@ -31,7 +31,12 @@ def kafka_container() -> Iterator[KafkaContainer]:
     except DockerUnavailableError as exc:
         pytest.fail(str(exc), pytrace=False)
 
-    container = KafkaContainer(image=KAFKA_IMAGE).with_kraft()
+    container = (
+        KafkaContainer(image=KAFKA_IMAGE)
+        .with_kraft()
+        .with_env("KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR", "1")
+        .with_env("KAFKA_TRANSACTION_STATE_LOG_MIN_ISR", "1")
+    )
     try:
         container.start()
     except Exception as exc:
