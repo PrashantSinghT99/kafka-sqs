@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mqtest-learning-framework"
+version = "0.1.0"
+description = "Hands-on Kafka and SQS test automation learning framework"
+readme = "README.md"
+requires-python = ">=3.12,<4"
+license = { text = "MIT" }
+authors = [
+  { name = "Kafka and SQS Learning Project" },
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "confluent-kafka==2.15.0",
+  "pytest>=8.2,<9",
+  "testcontainers[kafka]==4.14.2",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+minversion = "8.2"
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = [
+  "-ra",
+  "--strict-markers",
+]
+markers = [
+  "unit: fast tests that do not require external services",
+  "contract: event envelope and schema contract tests",
+  "integration: tests that require disposable external services",
+  "kafka: tests that require a Kafka broker",
+  "sqs: tests that require an SQS-compatible service",
+  "reliability: duplicate, retry, ordering, recovery, and DLQ scenarios",
+]
