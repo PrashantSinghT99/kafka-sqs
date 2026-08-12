@@ -1,5 +1,23 @@
 name: mqtest-local
 
+x-app-environment: &app-environment
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  KAFKA_TOPIC: orders.created.local
+  KAFKA_DLQ_TOPIC: orders.created.local.dlq
+  KAFKA_CONSUMER_GROUP: local-order-consumer
+  SQS_ENDPOINT_URL: http://localstack:4566
+  SQS_QUEUE_NAME: orders-created-local
+  SQS_DLQ_NAME: orders-created-local-dlq
+  AWS_DEFAULT_REGION: us-east-1
+  POSTGRES_DSN: postgresql://mqtest:mqtest@postgres:5432/mqtest
+  KAFKA_SCHEMA: kafka_lab
+  SQS_SCHEMA: sqs_lab
+  KAFKA_CONSOLE_URL: http://127.0.0.1:8088
+  ADMINER_URL: http://127.0.0.1:8089
+
+x-app-image: &app-image
+  image: mqtest-local-app:latest
+
 services:
   kafka:
     image: confluentinc/cp-kafka:7.6.0
@@ -92,6 +110,76 @@ services:
       timeout: 5s
       retries: 20
       start_period: 10s
+    restart: unless-stopped
+
+  lab-init:
+    <<: *app-image
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    container_name: mqtest-local-init
+    command: ["python", "-m", "sample_app.local_lab.initialize"]
+    environment: *app-environment
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    restart: "no"
+
+  kafka-worker:
+    <<: *app-image
+    container_name: mqtest-local-kafka-worker
+    command: ["python", "-m", "sample_app.local_lab.workers", "kafka"]
+    environment: *app-environment
+    depends_on:
+      lab-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  sqs-worker:
+    <<: *app-image
+    container_name: mqtest-local-sqs-worker
+    command: ["python", "-m", "sample_app.local_lab.workers", "sqs"]
+    environment: *app-environment
+    depends_on:
+      lab-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  dashboard:
+    <<: *app-image
+    container_name: mqtest-local-dashboard
+    command:
+      - uvicorn
+      - sample_app.local_lab.app:create_local_lab_app
+      - --factory
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    environment: *app-environment
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import json,urllib.request; assert json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3))['status'] == 'ready'"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    depends_on:
+      lab-init:
+        condition: service_completed_successfully
+      kafka-worker:
+        condition: service_started
+      sqs-worker:
+        condition: service_started
     restart: unless-stopped
 
 volumes:

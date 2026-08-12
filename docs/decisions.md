@@ -7,10 +7,10 @@ This is the living implementation record for the project. Update it whenever a s
 | Item | Current value |
 |---|---|
 | Active phase | Phase 7 — Visual local learning lab |
-| Current point | Step 19B — Local application runtime and visual dashboard |
-| Step status | In progress |
-| Last completed step | Step 19A — Persistent local infrastructure |
-| Next gate | Reuse the tested producers/consumers in continuously running local services |
+| Current point | Step 19 — Visual local learning mode |
+| Step status | Completed and verified |
+| Last completed step | Step 19 — Visual local learning mode |
+| Next gate | Use the visual walkthrough, then map observed boundaries to automated tests |
 
 ## Repository state
 
@@ -18,7 +18,7 @@ This is the living implementation record for the project. Update it whenever a s
 |---|---|
 | Primary branch | `main` |
 | Remote | `origin` → `https://github.com/PrashantSinghT99/kafka-sqs.git` |
-| Last completed-step reference | Step 19A — `feat: add persistent local messaging infrastructure` |
+| Last completed-step reference | Step 19 — `feat: add visual local messaging lab` |
 | Remote tracking | `main` → `origin/main` |
 | Commit policy | One verified implementation-step commit per completed step |
 
@@ -47,6 +47,8 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-12 | Step 17 — SQS reliability | Completed | 75 tests passed; visibility/redelivery, receive count, redrive, FIFO order, and deduplication verified |
 | 2026-08-12 | Step 18 — CI and evidence | Completed | 76 tests passed; workflow structure, split selections, timeouts, JUnit uploads, and full cleanup verified |
 | 2026-08-12 | Step 19A — Persistent local infrastructure | Completed | Compose configuration valid; Kafka, Console, LocalStack, PostgreSQL, and Adminer healthy; host SDK connections and browser UIs verified |
+| 2026-08-12 | Step 19B — Local application and visual journey | Completed | Browser sent real Kafka and SQS events; consumers committed/deleted after PostgreSQL; pause/resume made queued state observable |
+| 2026-08-12 | Step 19 — Final local-lab gate | Completed | 81 tests passed while lab ran; Status/Stop/Start preserved Kafka and SQS database rows; disposable test containers cleaned |
 
 ## Decision record
 
@@ -420,6 +422,20 @@ This is the living implementation record for the project. Update it whenever a s
 - Decision: Expose local-lab services only on `127.0.0.1` and advertise Kafka externally as `127.0.0.1:29092`.
 - Reason: Loopback binding avoids exposing unsecured learning services to the LAN and avoids a Windows IPv6 `localhost` connection delay observed during verification.
 - Consequence: Browser and SDK documentation uses explicit `127.0.0.1` addresses; containers communicate through their internal Compose network names.
+
+### D-054 — Reuse tested runtime code in continuous local workers
+
+- Status: Accepted
+- Decision: Package the existing API publisher, contract parsing, Kafka/SQS consumers, and PostgreSQL store into one local application image rather than building demonstration-only duplicates.
+- Reason: The visual journey must teach the same behavior the automated component tests verify.
+- Consequence: Kafka still commits after effects and SQS still deletes after effects; stable resources change lifecycle only, not business semantics.
+
+### D-055 — Make broker waiting state controllable and visible
+
+- Status: Accepted
+- Decision: Store Kafka and SQS consumer pause state in a small PostgreSQL control table and expose pause/resume buttons in the dashboard.
+- Reason: A continuously running SQS consumer can receive and delete a successful message before a learner sees it waiting in the queue.
+- Consequence: A learner can pause, publish, observe broker acknowledgement without a database effect, then resume and observe acknowledgement completion. The control is local-lab-only and is not part of production sample logic.
 
 ## Verification log
 
@@ -796,6 +812,32 @@ This is the living implementation record for the project. Update it whenever a s
   - Redpanda Console connects to Apache Kafka: Passed
   - Adminer reaches the Compose PostgreSQL service: Passed
   - Unsecured ports are bound only to loopback: Passed
+
+### Step 19B — Local application runtime and visual dashboard
+
+- Date: 2026-08-12
+- Application image: `mqtest-local-app:latest`, built once from `Dockerfile.local`
+- Runtime services: initializer, dashboard/API, Kafka worker, and SQS worker
+- Stable resources: `orders.created.local`, `orders.created.local.dlq`, `orders-created-local`, `orders-created-local-dlq`, `kafka_lab`, and `sqs_lab`
+- Focused test command: `.\.venv\Scripts\python.exe -m pytest tests\unit\test_local_lab.py -q`
+- Focused result: Passed — 5 local-lab guards
+- Browser Kafka result: API and broker acknowledgement completed; Kafka worker stored the row; Console retained the exact key, event ID, correlation ID, payload, and one message
+- Browser SQS result: paused consumer left one ready message and no new database row; resume returned queue depth to zero and created the exact row
+- Kafka group evidence: `local-order-consumer` committed partition 2 at offset 1 with lag zero
+- PostgreSQL UI evidence: Adminer displayed schemas `kafka_lab`, `sqs_lab`, and `local_lab`; `sqs_lab.orders` displayed both browser-created rows
+- Runtime log evidence: Kafka reports partition/offset; SQS reports event ID after processing and deletion
+- Lifecycle result: `Status`, `Stop`, and `Start -NoBrowser` passed; database counts remained `kafka_lab=1` and `sqs_lab=2` after restart
+- Final regression command: `.\.venv\Scripts\python.exe -m pytest -q`
+- Final regression result: Passed — 81 tests in 98.46 seconds while all persistent local services were active
+- Cleanup result: Disposable Testcontainers services were removed; only intentional `mqtest-local-*` services remained
+- Acceptance criteria:
+  - One command starts the complete visual system: Passed
+  - Dashboard sends through real Kafka and SQS SDK paths: Passed
+  - Both continuously running consumers write PostgreSQL: Passed
+  - Kafka record remains visible after processing: Passed
+  - SQS message waits while paused and is deleted after success: Passed
+  - Consumer controls and browser flow report no console errors: Passed
+  - Stop preserves data and reset requires explicit confirmation: Passed by script review; destructive reset was not executed
 
 ## Open decisions
 

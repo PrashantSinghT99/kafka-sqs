@@ -300,3 +300,25 @@ The baseline architecture is successful when a learner can run independent produ
 - [Amazon SQS long polling](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-short-and-long-polling.html)
 - [Amazon SQS dead-letter queues](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-dead-letter-queues.html)
 - [Testcontainers Kafka module](https://testcontainers.com/modules/kafka/)
+
+## 17. Persistent visual learning mode
+
+The visual local lab is an additional runtime topology for manual exploration.
+It reuses the same producer, contract, consumer, and PostgreSQL code while
+replacing function-scoped Testcontainers resources with fixed Compose services.
+
+```mermaid
+flowchart LR
+    UI["Message Journey dashboard"] --> API["Order API"]
+    API --> Kafka["Kafka topic"] --> KC["Continuous Kafka consumer"] --> KDB["kafka_lab.orders"]
+    API --> SQS["LocalStack SQS queue"] --> SC["Continuous SQS consumer"] --> SDB["sqs_lab.orders"]
+    Console["Redpanda Console"] -. inspect .-> Kafka
+    Adminer["Adminer"] -. inspect .-> KDB
+    Adminer -. inspect .-> SDB
+```
+
+The dashboard pause controls are stored in PostgreSQL so the API and workers
+share one observable state. Pausing demonstrates an acknowledged but unprocessed
+message; resuming demonstrates Kafka offset commit or SQS deletion only after
+the database effect succeeds. The local mode never replaces isolated automated
+tests and is not a production deployment design.

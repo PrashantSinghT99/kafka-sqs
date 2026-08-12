@@ -426,6 +426,36 @@ Acceptance criteria:
 
 Learning checkpoint: use a CI failure report to trace one event from input to final observed state.
 
+## Phase 7: Visual local learning mode
+
+### Step 19 — Add persistent Kafka/SQS journey lab
+
+Status: Completed on 2026-08-12. Verification is recorded in [Decisions and Implementation Progress](decisions.md).
+
+Goal: let a visual learner operate and inspect the tested producer/consumer system before studying its automation.
+
+Tasks:
+
+1. Add fixed-port persistent Kafka, LocalStack, and PostgreSQL services.
+2. Add Redpanda Console and Adminer inspection UIs.
+3. Package the tested API and consumers as continuously running services.
+4. Create stable topics, queues, consumer group, and database schemas idempotently.
+5. Add a browser dashboard for Kafka and SQS journeys.
+6. Add consumer pause/resume controls to expose waiting-message state.
+7. Add one-command PowerShell lifecycle operations and a visual walkthrough.
+8. Verify both paths in the browser and preserve the disposable automated-test baseline.
+
+Acceptance criteria:
+
+- One command starts a healthy local learning system.
+- Kafka records remain inspectable with topic, key, partition, offset, headers, and consumer group.
+- SQS acknowledgement is visible as waiting while paused and deletion after success.
+- Kafka and SQS effects appear in separate PostgreSQL schemas.
+- Local data persists across stop/start and reset requires explicit confirmation.
+- The complete automated suite remains green while the lab runs.
+
+Learning checkpoint: narrate one event's identity and acknowledgement state at every boundary from HTTP request to PostgreSQL.
+
 ## Later extensions
 
 These are deliberately postponed until the baseline is reliable:
@@ -442,4 +472,4 @@ These are deliberately postponed until the baseline is reliable:
 
 ## Immediate next action
 
-The 18-step baseline is complete. Future work should begin from the explicitly listed later extensions and be introduced as new reviewed gates rather than changing the verified baseline silently.
+Use the visual lab to narrate Kafka and SQS message journeys, then map each observed boundary to the independent producer, consumer, contract, and reliability tests. Future framework extensions remain explicitly reviewed gates.

@@ -193,6 +193,28 @@ class PostgresOrderStore:
                 (order_id,),
             ).fetchone()
 
+    def list_orders(self, *, limit: int = 25) -> list[StoredOrder]:
+        """Return recent business state for the local visual dashboard."""
+        if limit <= 0:
+            raise ValueError("limit must be greater than zero.")
+        with psycopg.connect(
+            self.dsn,
+            row_factory=class_row(StoredOrder),
+        ) as connection:
+            rows = connection.execute(
+                sql.SQL(
+                    """
+                    SELECT order_id, customer_id, amount, currency,
+                           source_event_id, correlation_id
+                    FROM {}.orders
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """
+                ).format(sql.Identifier(self.schema)),
+                (limit,),
+            ).fetchall()
+        return list(rows)
+
     def has_processed(self, event_id: UUID) -> bool:
         """Report whether the consumer transaction recorded this event ID."""
         with psycopg.connect(self.dsn) as connection:

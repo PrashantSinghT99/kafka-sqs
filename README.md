@@ -33,6 +33,26 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
+## Visual local learning mode
+
+Start a persistent end-to-end system with Apache Kafka, Redpanda Console,
+LocalStack SQS, PostgreSQL, Adminer, two continuous consumers, and a visual
+Message Journey dashboard:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\local-lab.ps1 Start
+```
+
+The dashboard opens at `http://127.0.0.1:8000`. It can pause either consumer so
+you can watch a message wait in Kafka or SQS, then resume processing and see the
+PostgreSQL result. Follow the complete [visual local lab walkthrough](docs/local-lab.md).
+
+Stop while preserving data:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\local-lab.ps1 Stop
+```
+
 Run the current unit suite:
 
 ```powershell
@@ -101,4 +121,4 @@ assert record.event.data.order_id == "ORD-123"
 
 ## Current status
 
-All 18 baseline steps are complete. The framework independently tests Kafka and SQS producers/consumers, contracts, database and HTTP effects, idempotency, retry/DLQ, ordering, recovery, visibility, redrive, FIFO behavior, and deduplication. GitHub Actions provides fast, Kafka, and SQS gates with JUnit evidence and bounded job timeouts. The complete local baseline currently contains 76 passing tests.
+All 18 automated-framework baseline steps plus the Step 19 visual local-lab extension are complete. The framework independently tests Kafka and SQS producers/consumers, contracts, database and HTTP effects, idempotency, retry/DLQ, ordering, recovery, visibility, redrive, FIFO behavior, and deduplication. GitHub Actions provides fast, Kafka, and SQS gates with JUnit evidence and bounded job timeouts. The complete local baseline currently contains 81 passing tests.
