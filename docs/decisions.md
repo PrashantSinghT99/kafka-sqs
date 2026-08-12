@@ -6,11 +6,11 @@ This is the living implementation record for the project. Update it whenever a s
 
 | Item | Current value |
 |---|---|
-| Active phase | Phase 5 — SQS |
-| Current point | Step 17 — Add SQS reliability scenarios completed |
+| Active phase | Phase 6 — CI and reporting |
+| Current point | Step 18 — Add continuous integration and evidence completed |
 | Step status | Completed and verified |
-| Last completed step | Step 17 — Add SQS reliability scenarios |
-| Next gate | Step 18 — Add continuous integration and evidence |
+| Last completed step | Step 18 — Add continuous integration and evidence |
+| Next gate | Baseline complete — select a later extension for a new reviewed gate |
 
 ## Repository state
 
@@ -18,7 +18,7 @@ This is the living implementation record for the project. Update it whenever a s
 |---|---|
 | Primary branch | `main` |
 | Remote | `origin` → `https://github.com/PrashantSinghT99/kafka-sqs.git` |
-| Last completed-step reference | Step 17 — `test: prove SQS reliability semantics` |
+| Last completed-step reference | Step 18 — `ci: add split test gates and evidence` |
 | Remote tracking | `main` → `origin/main` |
 | Commit policy | One verified implementation-step commit per completed step |
 
@@ -45,6 +45,7 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-12 | Step 15 — LocalStack SQS resources | Completed | 70 tests passed; standard/FIFO/DLQ attributes, redrive wiring, unique naming, and cleanup verified |
 | 2026-08-12 | Step 16 — SQS component tests | Completed | 72 tests passed; API-to-queue attributes and SDK-to-database deletion-after-success flow verified |
 | 2026-08-12 | Step 17 — SQS reliability | Completed | 75 tests passed; visibility/redelivery, receive count, redrive, FIFO order, and deduplication verified |
+| 2026-08-12 | Step 18 — CI and evidence | Completed | 76 tests passed; workflow structure, split selections, timeouts, JUnit uploads, and full cleanup verified |
 
 ## Decision record
 
@@ -391,6 +392,20 @@ This is the living implementation record for the project. Update it whenever a s
 - Reason: Visibility controls competition, deletion acknowledges, redrive isolates poison messages, FIFO groups scope ordering, and deduplication suppresses sends only within its supported window. None alone makes business side effects idempotent.
 - Consequence: Tests make each mechanism observable and still retain database event-ID idempotency in the consumer design.
 
+### D-050 — Gate Docker suites behind fast feedback
+
+- Status: Accepted
+- Decision: Run unit/contract first, then launch independent Kafka and SQS integration jobs only after it succeeds.
+- Reason: Contract and mapping errors should fail quickly without spending time or runner capacity on containers.
+- Consequence: Kafka and SQS remain independently diagnosable while sharing the same installed project and Python 3.12 baseline.
+
+### D-051 — Always retain bounded CI evidence
+
+- Status: Accepted
+- Decision: Apply ten-minute fast and twenty-minute infrastructure job timeouts, create per-suite JUnit XML, and upload it with `if: always()`.
+- Reason: A timed-out or failed asynchronous test needs identifiers and infrastructure evidence after the runner is gone.
+- Consequence: A unit test parses the workflow and guards the three jobs, dependencies, timeout ceiling, and artifact upload steps.
+
 ## Verification log
 
 ### Step 1 — Python project bootstrap
@@ -727,6 +742,27 @@ This is the living implementation record for the project. Update it whenever a s
   - FIFO order is preserved within one message group: Passed
   - Reused FIFO deduplication ID suppresses the duplicate send: Passed
   - Received messages are explicitly deleted during test-owned cleanup: Passed
+
+### Step 18 — Continuous integration and evidence
+
+- Date: 2026-08-12
+- CI workflow: `.github/workflows/test.yml`
+- Fast command: `.\.venv\Scripts\python.exe -m pytest -m "unit or contract" --junitxml="test-results\step18-fast.xml"`
+- Fast result: Passed — 48 selected tests passed in 3.49 seconds
+- Kafka collection gate: `integration and kafka` selects 22 tests
+- SQS collection gate: `integration and sqs` selects 6 tests
+- Final command: `.\.venv\Scripts\python.exe -m pytest --junitxml="test-results\step18-full.xml"`
+- Final result: Passed — 76 tests collected, 76 passed in 60.09 seconds
+- Dependency result: Editable install with PyYAML `6.0.3`; `pip check` passed
+- Cleanup result: No Kafka, PostgreSQL, or LocalStack container remained
+- Acceptance criteria:
+  - Fast unit/contract job runs without Docker: Passed
+  - Kafka and SQS integration jobs are separate and depend on fast gate: Passed
+  - All jobs use Python 3.12 and dependency caching: Passed
+  - Every job has a hard timeout no greater than 20 minutes: Passed
+  - Every job uploads JUnit evidence even after failure: Passed
+  - Workflow structure has a fast unit regression guard: Passed
+  - Complete clean local baseline passes: Passed
 
 ## Open decisions
 

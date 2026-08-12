@@ -406,6 +406,8 @@ Learning checkpoint: distinguish visibility, acknowledgement, deduplication, and
 
 ### Step 18 — Add continuous integration and evidence
 
+Status: Completed on 2026-08-12. Verification is recorded in [Decisions and Implementation Progress](decisions.md).
+
 Goal: make results reproducible outside a developer laptop.
 
 Tasks:
@@ -440,4 +442,4 @@ These are deliberately postponed until the baseline is reliable:
 
 ## Immediate next action
 
-Begin Step 18 only: split CI into fast and Docker-backed suites, publish JUnit evidence, enforce job timeouts, document runner requirements, and validate workflow syntax plus all local test gates.
+The 18-step baseline is complete. Future work should begin from the explicitly listed later extensions and be introduced as new reviewed gates rather than changing the verified baseline silently.

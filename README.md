@@ -68,6 +68,20 @@ python -m pytest -m "integration and kafka"
 python -m pytest -m "integration and sqs"
 ```
 
+## Continuous integration
+
+GitHub Actions runs three independent gates:
+
+1. Unit and contract tests without Docker.
+2. Kafka/PostgreSQL integration and reliability tests.
+3. LocalStack SQS/PostgreSQL integration and reliability tests.
+
+The Docker-backed jobs start only after the fast gate passes. Every job has a
+hard timeout and uploads its JUnit XML even on failure. GitHub-hosted Ubuntu
+runners provide the Docker daemon required by Testcontainers; self-hosted
+runners must provide a compatible Docker Engine and enough space for the pinned
+Kafka, PostgreSQL, and LocalStack images.
+
 ## Kafka probe example
 
 Start the probe before triggering the system under test. Its unique consumer
@@ -87,4 +101,4 @@ assert record.event.data.order_id == "ORD-123"
 
 ## Current status
 
-Steps 1–17 are complete. SQS reliability tests now prove visibility-timeout redelivery with increasing receive count, redrive after repeated receives, FIFO order within one message group, and deduplication-ID suppression. These broker features reduce duplicate exposure but do not replace business idempotency. Step 18 adds CI and durable test evidence.
+All 18 baseline steps are complete. The framework independently tests Kafka and SQS producers/consumers, contracts, database and HTTP effects, idempotency, retry/DLQ, ordering, recovery, visibility, redrive, FIFO behavior, and deduplication. GitHub Actions provides fast, Kafka, and SQS gates with JUnit evidence and bounded job timeouts. The complete local baseline currently contains 76 passing tests.
