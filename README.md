@@ -57,6 +57,23 @@ python -m pytest -m "integration and kafka"
 python -m pytest -m "integration and sqs"
 ```
 
+## Kafka probe example
+
+Start the probe before triggering the system under test. Its unique consumer
+group observes the topic independently and never commits application offsets:
+
+```python
+settings = ProbeSettings(kafka_bootstrap_servers)
+with KafkaEventProbe(settings, topic_name) as probe:
+    trigger_the_producer(correlation_id="checkout-123")
+    record = probe.wait_for_event(
+        match_order_created_event(correlation_id="checkout-123"),
+        timeout_seconds=10,
+    )
+
+assert record.event.data.order_id == "ORD-123"
+```
+
 ## Current status
 
-Steps 1–5 are complete. The framework now publishes contract-valid events with explicit idempotence and acknowledgements, stable order-key routing, tracing headers, bounded failure handling, and topic/partition/offset evidence. Step 6, the independent Kafka test probe, is the next implementation gate.
+Steps 1–6 are complete. The framework can publish contract-valid events and independently observe them through a unique, non-committing Kafka consumer group. Its bounded probe skips unrelated records and reports event identity plus topic/partition/offset evidence when a match is absent. Step 7, the sample producer API, is the next implementation gate.

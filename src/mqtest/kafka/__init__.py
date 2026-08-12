@@ -16,6 +16,14 @@ from mqtest.kafka.producer import (
     order_created_headers,
     serialize_order_created_event,
 )
+from mqtest.kafka.probe import (
+    KafkaEventProbe,
+    KafkaProbeError,
+    KafkaProbeTimeout,
+    ObservedKafkaRecord,
+    ProbeSettings,
+    match_order_created_event,
+)
 from mqtest.kafka.settings import KAFKA_IMAGE
 
 __all__ = [
@@ -23,12 +31,18 @@ __all__ = [
     "KAFKA_IMAGE",
     "KafkaAdminError",
     "KafkaEventProducer",
+    "KafkaEventProbe",
     "KafkaPublishError",
+    "KafkaProbeError",
+    "KafkaProbeTimeout",
     "KafkaTestAdmin",
+    "ObservedKafkaRecord",
+    "ProbeSettings",
     "ProducerSettings",
     "PublishedRecord",
     "TopicMetadata",
     "TopicSpec",
+    "match_order_created_event",
     "order_created_headers",
     "serialize_order_created_event",
     "unique_topic_name",

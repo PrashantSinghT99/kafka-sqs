@@ -133,6 +133,8 @@ Learning checkpoint: explain how the Kafka key affects partition routing and ord
 
 ### Step 6 — Build the Kafka test probe
 
+Status: Completed on 2026-08-12. Verification is recorded in [Decisions and Implementation Progress](decisions.md).
+
 Goal: observe producer output independently.
 
 Tasks:
@@ -416,4 +418,4 @@ These are deliberately postponed until the baseline is reliable:
 
 ## Immediate next action
 
-Begin Step 1 only: bootstrap the Python project, add one unit smoke test, and document the local commands. Review that foundation before starting Kafka or installing container dependencies.
+Begin Step 7 only: add the sample producer API, its request validation, correlation-ID propagation, and unit-level event-mapping tests. Do not combine it with the full API-to-broker component test reserved for Step 8.

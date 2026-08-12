@@ -6,11 +6,11 @@ This is the living implementation record for the project. Update it whenever a s
 
 | Item | Current value |
 |---|---|
-| Active phase | Phase 1 — Kafka foundation |
-| Current point | Step 5 — Build the Kafka producer client completed |
+| Active phase | Phase 2 — Kafka producer testing |
+| Current point | Step 6 — Build the Kafka test probe completed |
 | Step status | Completed and verified |
-| Last completed step | Step 5 — Build the Kafka producer client |
-| Next gate | Step 6 — Build the Kafka test probe |
+| Last completed step | Step 6 — Build the Kafka test probe |
+| Next gate | Step 7 — Add the sample producer API |
 
 ## Repository state
 
@@ -18,7 +18,7 @@ This is the living implementation record for the project. Update it whenever a s
 |---|---|
 | Primary branch | `main` |
 | Remote | `origin` → `https://github.com/PrashantSinghT99/kafka-sqs.git` |
-| Last completed-step reference | Step 5 — `feat: add reliable Kafka event producer` |
+| Last completed-step reference | Step 6 — `feat: add independent Kafka test probe` |
 | Remote tracking | `main` → `origin/main` |
 | Commit policy | One verified implementation-step commit per completed step |
 
@@ -33,6 +33,7 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-12 | Git baseline for Steps 1–3 | Completed | Commit `2fa78a2` pushed to `origin/main` |
 | 2026-08-12 | Step 4 — Event contract | Completed | 17 tests passed; schema format checks and wheel packaging verified |
 | 2026-08-12 | Step 5 — Kafka producer | Completed | 23 tests passed; real broker acknowledgement and delivery evidence verified |
+| 2026-08-12 | Step 6 — Kafka test probe | Completed | 30 tests passed; isolated observation, predicate matching, deadline diagnostics, and cleanup verified |
 
 ## Decision record
 
@@ -197,6 +198,27 @@ This is the living implementation record for the project. Update it whenever a s
 - Reason: Unit and integration layers can then use the same descriptive test filename without pytest importing both as one top-level module.
 - Consequence: Test module identity includes its architectural layer, such as `tests.unit.test_kafka_producer`.
 
+### D-024 — Give every probe an independent consumer group
+
+- Status: Accepted
+- Decision: Generate a unique `mqtest-probe-<uuid>` group ID for each probe unless a test supplies an explicit diagnostic group.
+- Reason: Kafka tracks offsets independently per consumer group. A unique test group can read the producer's records without taking partitions from, or advancing offsets for, the application consumer group.
+- Consequence: Producer tests observe rather than steal events. The group ID is included in timeout evidence so failures can be traced.
+
+### D-025 — Start explicitly and never commit probe offsets
+
+- Status: Accepted
+- Decision: Subscribe and wait for partition assignment before the producer trigger, set `auto.offset.reset=earliest`, disable automatic commit and offset storage, and read only committed transactional records.
+- Reason: The test must know its observation point and must not create misleading offset state. Waiting for assignment removes startup ambiguity, while isolated topics plus `earliest` prevent a publish-before-poll race from hiding the event.
+- Consequence: The probe is intentionally not a business-processing consumer. Its context manager always closes the consumer, and every wait has a caller-defined deadline.
+
+### D-026 — Match typed events and retain bounded failure evidence
+
+- Status: Accepted
+- Decision: Parse observed values through the versioned `order.created` contract, match with an event/correlation predicate, skip unrelated or malformed records, and retain only the latest ten compact summaries by default.
+- Reason: A producer test should find its intended event without failing on normal topic traffic, but a timeout still needs enough evidence to diagnose the group, identities, partitions, and offsets observed.
+- Consequence: `correlation_id` locates one test journey; it still does not route the record or provide idempotency. Full payload assertions happen only after a matching typed record is returned.
+
 ## Verification log
 
 ### Step 1 — Python project bootstrap
@@ -302,6 +324,27 @@ This is the living implementation record for the project. Update it whenever a s
   - Delivery callback failure becomes a diagnostic exception: Passed
   - Bounded flush reports undelivered count: Passed
   - Returned evidence contains topic, partition, offset, timestamp, key, and headers: Passed
+
+### Step 6 — Kafka test probe
+
+- Date: 2026-08-12
+- Unit/contract command: `.\.venv\Scripts\python.exe -m pytest -m "unit or contract" -vv`
+- Unit/contract result: Passed — 24 selected tests passed
+- Focused Kafka command: `.\.venv\Scripts\python.exe -m pytest tests/integration/test_kafka_probe.py -vv --junitxml="test-results\step6-kafka.xml"`
+- Focused Kafka result: Passed — 2 probe integration tests passed in 8.90 seconds
+- Final command: `.\.venv\Scripts\python.exe -m pytest --junitxml="test-results\step6-full.xml"`
+- Final result: Passed — 30 tests collected, 30 passed in 11.87 seconds
+- Dependency result: `pip check` passed with no broken requirements
+- Cleanup result: No Kafka broker container remained after verification
+- Environment note: The first focused run was correctly blocked by restricted Docker named-pipe access; the approved Docker-enabled run passed without code changes.
+- Evidence result: JUnit includes probe group ID, event ID, correlation ID, Kafka partition, and Kafka offset
+- Acceptance criteria:
+  - Probe receives partition assignment before the trigger: Passed
+  - Unique group observes independently with commits disabled: Passed
+  - Unrelated and malformed records do not create a false match: Passed
+  - Event ID and/or correlation ID predicates return the intended typed event: Passed
+  - Missing match fails at its deadline with group and observed-record evidence: Passed
+  - Context-managed consumer closes on completion: Passed
 
 ## Open decisions
 
