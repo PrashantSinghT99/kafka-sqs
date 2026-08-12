@@ -158,6 +158,23 @@ class PostgresOrderStore:
                     f"Cannot complete unknown event {event_id}."
                 )
 
+    def discard(self, event_id: UUID) -> None:
+        """Atomically remove partial state before terminal dead-lettering."""
+        schema = sql.Identifier(self.schema)
+        with psycopg.connect(self.dsn) as connection:
+            connection.execute(
+                sql.SQL("DELETE FROM {}.orders WHERE source_event_id = %s").format(
+                    schema
+                ),
+                (event_id,),
+            )
+            connection.execute(
+                sql.SQL("DELETE FROM {}.processed_events WHERE event_id = %s").format(
+                    schema
+                ),
+                (event_id,),
+            )
+
     def fetch_order(self, order_id: str) -> StoredOrder | None:
         """Return the observable business record for an assertion."""
         with psycopg.connect(

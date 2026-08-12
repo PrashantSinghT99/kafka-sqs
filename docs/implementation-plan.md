@@ -292,6 +292,8 @@ Learning checkpoint: explain why checking and inserting an event ID in separate 
 
 ### Step 13 — Add retry and DLQ behavior
 
+Status: Completed on 2026-08-12. Verification is recorded in [Decisions and Implementation Progress](decisions.md).
+
 Goal: verify transient and permanent failure policies.
 
 Tasks:
@@ -430,4 +432,4 @@ These are deliberately postponed until the baseline is reliable:
 
 ## Immediate next action
 
-Begin Step 13 only: define deterministic retry classification/backoff, add a retry topic and DLQ path, then prove transient recovery and poison-event isolation without partial business state.
+Begin Step 14 only: prove same-key partition ordering, avoid cross-key global-order assumptions, verify restart from committed offsets, and demonstrate that a `read_committed` probe excludes aborted transactional records.

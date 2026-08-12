@@ -7,10 +7,10 @@ This is the living implementation record for the project. Update it whenever a s
 | Item | Current value |
 |---|---|
 | Active phase | Phase 3 — Kafka consumer testing |
-| Current point | Step 12 — Prove idempotency completed |
+| Current point | Step 13 — Add retry and DLQ behavior completed |
 | Step status | Completed and verified |
-| Last completed step | Step 12 — Prove idempotency |
-| Next gate | Step 13 — Add retry and DLQ behavior |
+| Last completed step | Step 13 — Add retry and DLQ behavior |
+| Next gate | Step 14 — Add ordering, recovery, and transaction scenarios |
 
 ## Repository state
 
@@ -18,7 +18,7 @@ This is the living implementation record for the project. Update it whenever a s
 |---|---|
 | Primary branch | `main` |
 | Remote | `origin` → `https://github.com/PrashantSinghT99/kafka-sqs.git` |
-| Last completed-step reference | Step 12 — `feat: make consumer processing idempotent` |
+| Last completed-step reference | Step 13 — `feat: add consumer retry and dead-letter policy` |
 | Remote tracking | `main` → `origin/main` |
 | Commit policy | One verified implementation-step commit per completed step |
 
@@ -40,6 +40,7 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-12 | Step 10 — Eventual consumer assertions | Completed | 50 tests passed; immediate/retry/timeout polling and asynchronous Kafka-to-PostgreSQL component flow verified |
 | 2026-08-12 | Step 11 — Downstream HTTP verification | Completed | 53 tests passed; request contract and scripted temporary-failure recovery verified through a real HTTP stub |
 | 2026-08-12 | Step 12 — Consumer idempotency | Completed | 57 tests passed; duplicate suppression, pending-effect recovery, and correlation-ID reuse verified |
+| 2026-08-12 | Step 13 — Retry and DLQ | Completed | 62 tests passed; classified retries, poison cleanup, DLQ evidence, and later-record continuation verified |
 
 ## Decision record
 
@@ -323,6 +324,20 @@ This is the living implementation record for the project. Update it whenever a s
 - Reason: Correlation ID describes a journey and is intentionally shared by multiple legitimate events. Event ID identifies one immutable event delivery.
 - Consequence: Two different event IDs with the same correlation ID create two valid orders and downstream requests; publishing the same event ID twice creates one of each effect.
 
+### D-041 — Make retries classified and bounded
+
+- Status: Accepted
+- Decision: Configure maximum attempts, backoff, and an explicit tuple of retryable exception types. Undeclared exceptions are non-retryable; all retry loops are finite.
+- Reason: Retrying validation or permanent business failures wastes resources and can block a partition. Deterministic attempts make behavior and tests explainable.
+- Consequence: Consumer-level retries re-enter the idempotent pending-event flow. Tests use zero backoff for speed; production-like configurations can use a positive bounded value.
+
+### D-042 — Dead-letter only after cleanup and broker acknowledgement
+
+- Status: Accepted
+- Decision: After retry exhaustion, atomically discard the event's pending order/marker, publish a broker-acknowledged DLQ envelope, then commit the original poison offset.
+- Reason: This leaves no partial business state and lets the partition continue. If DLQ publication fails, the original offset is not committed and Kafka can redeliver the source event.
+- Consequence: DLQ evidence includes source topic/partition/offset/key, event/correlation IDs, attempts, error type/message, timestamp, and original payload. A later valid same-key record is processed after the poison record.
+
 ## Verification log
 
 ### Step 1 — Python project bootstrap
@@ -565,6 +580,27 @@ This is the living implementation record for the project. Update it whenever a s
   - Pending redelivery retries unfinished downstream work: Passed
   - Pending recovery does not insert another order: Passed
   - Different event IDs with the same correlation ID are both processed: Passed
+
+### Step 13 — Retry and DLQ behavior
+
+- Date: 2026-08-12
+- Unit/contract command: `.\.venv\Scripts\python.exe -m pytest -m "unit or contract" -q`
+- Unit/contract result: Passed — 44 selected tests passed
+- Focused command: `.\.venv\Scripts\python.exe -m pytest tests/integration/test_order_consumer_retry_dlq.py -vv --junitxml="test-results\step13-retry-dlq.xml"`
+- Focused result: Passed — 2 reliability integration tests passed in 19.42 seconds
+- Final command: `.\.venv\Scripts\python.exe -m pytest --junitxml="test-results\step13-full.xml"`
+- Final result: Passed — 62 tests collected, 62 passed in 43.67 seconds
+- Dependency result: `pip check` passed with no broken requirements
+- Cleanup result: Kafka topics/DLQ, PostgreSQL schemas, HTTP stubs, and containers were cleaned
+- Acceptance criteria:
+  - Retryable and non-retryable exceptions are explicitly classified: Passed
+  - Attempt count and backoff are validated and bounded: Passed
+  - Temporary HTTP failure succeeds on the configured attempt: Passed
+  - Always-failing poison event exhausts exactly three attempts: Passed
+  - DLQ record contains original identifiers, source metadata, error, and payload: Passed
+  - Poison partial database state is removed: Passed
+  - Poison source offset is committed only after DLQ acknowledgement: Passed
+  - Later same-key valid event continues and creates the only business row: Passed
 
 ## Open decisions
 

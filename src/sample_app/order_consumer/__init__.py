@@ -16,16 +16,24 @@ from sample_app.order_consumer.store import (
     PostgresOrderStore,
     StoredOrder,
 )
+from sample_app.order_consumer.reliability import (
+    DeadLetterFailure,
+    KafkaDeadLetterPublisher,
+    RetryPolicy,
+)
 
 __all__ = [
     "ConsumerSettings",
+    "DeadLetterFailure",
     "DownstreamNotificationError",
     "EventStoreResult",
     "KafkaOrderConsumer",
+    "KafkaDeadLetterPublisher",
     "OrderConsumerError",
     "OrderConsumerTimeout",
     "OrderNotificationClient",
     "PostgresOrderStore",
     "ProcessedKafkaRecord",
+    "RetryPolicy",
     "StoredOrder",
 ]

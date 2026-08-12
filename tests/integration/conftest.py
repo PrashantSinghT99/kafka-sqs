@@ -88,6 +88,23 @@ def kafka_topic(
             pytest.fail(f"Failed to clean isolated Kafka topic: {exc}")
 
 
+@pytest.fixture
+def kafka_dlq_topic(
+    request: pytest.FixtureRequest,
+    kafka_admin: KafkaTestAdmin,
+) -> Iterator[TopicMetadata]:
+    """Provision a second isolated topic for terminal failure evidence."""
+    spec = TopicSpec(name=unique_topic_name(f"{request.node.nodeid}-dlq"))
+    metadata = kafka_admin.create_topic(spec)
+    try:
+        yield metadata
+    finally:
+        try:
+            kafka_admin.delete_topic(metadata.name)
+        except KafkaAdminError as exc:
+            pytest.fail(f"Failed to clean isolated Kafka DLQ topic: {exc}")
+
+
 @pytest.fixture(scope="session")
 def postgres_container() -> Iterator[PostgresContainer]:
     """Start one disposable PostgreSQL server for consumer integration tests."""

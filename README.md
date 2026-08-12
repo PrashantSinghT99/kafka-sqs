@@ -87,4 +87,4 @@ assert record.event.data.order_id == "ORD-123"
 
 ## Current status
 
-Steps 1–12 are complete. Idempotency is atomic and keyed by `event_id`: a new event writes a pending marker and order together, downstream completion finalizes the marker, and completed duplicates skip repeated business/HTTP effects while still advancing Kafka. Pending redelivery resumes the unfinished effect, while different events sharing one correlation ID remain valid. Step 13 adds retry and DLQ behavior.
+Steps 1–13 are complete. Reliability policy now declares retryable errors, attempt count, and backoff. Transient HTTP failure recovers deterministically; exhausted poison processing removes partial state, publishes original identifiers/payload plus failure metadata to an isolated DLQ, commits the poison offset, and allows a later valid record to continue. Step 14 covers Kafka ordering, recovery, and transaction visibility.
