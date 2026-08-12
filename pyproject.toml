@@ -15,6 +15,7 @@ authors = [
 dependencies = [
   "confluent-kafka==2.15.0",
   "fastapi==0.139.2",
+  "httpx2==2.9.0",
   "jsonschema[format-nongpl]==4.26.0",
   "pydantic==2.13.4",
   "psycopg[binary]==3.3.4",
@@ -23,7 +24,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "httpx2==2.9.0",
   "pytest>=8.2,<9",
   "testcontainers[kafka,postgres]==4.14.2",
 ]

@@ -75,6 +75,17 @@ class _FakeConsumer:
         self.closed = True
 
 
+class _FakeDownstream:
+    def __init__(self, *, error: Exception | None = None) -> None:
+        self.events: list[Any] = []
+        self.error = error
+
+    def notify(self, event: Any) -> None:
+        self.events.append(event)
+        if self.error is not None:
+            raise self.error
+
+
 @pytest.mark.unit
 def test_consumer_config_disables_automatic_offset_progress() -> None:
     config = ConsumerSettings("kafka:9092", "orders-service").as_confluent_config()
@@ -128,4 +139,29 @@ def test_database_failure_prevents_offset_commit() -> None:
         with pytest.raises(OrderConsumerError, match="before offset commit"):
             consumer.process_one(timeout_seconds=0.1)
 
+    assert client.commits == []
+
+
+@pytest.mark.unit
+def test_downstream_failure_after_store_prevents_offset_commit() -> None:
+    event = make_order_created_event()
+    store = _FakeStore()
+    downstream = _FakeDownstream(error=RuntimeError("HTTP 503"))
+    client = _FakeConsumer(
+        _FakeMessage(serialize_order_created_event(event)),
+        store,
+    )
+
+    with KafkaOrderConsumer(
+        ConsumerSettings("unused:9092", "orders-service"),
+        "orders",
+        store,
+        downstream=downstream,
+        consumer=client,
+    ) as consumer:
+        with pytest.raises(OrderConsumerError, match="before offset commit"):
+            consumer.process_one(timeout_seconds=0.1)
+
+    assert store.events == [event]
+    assert downstream.events == [event]
     assert client.commits == []

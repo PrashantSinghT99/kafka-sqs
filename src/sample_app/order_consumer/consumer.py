@@ -78,6 +78,10 @@ class _OrderStore(Protocol):
     def store(self, event: Any) -> None: ...
 
 
+class _OrderDownstream(Protocol):
+    def notify(self, event: Any) -> None: ...
+
+
 class KafkaOrderConsumer:
     """Process one event transactionally, then commit its Kafka offset."""
 
@@ -87,6 +91,7 @@ class KafkaOrderConsumer:
         topic: str,
         store: PostgresOrderStore | _OrderStore,
         *,
+        downstream: _OrderDownstream | None = None,
         consumer: _ConsumerClient | None = None,
     ) -> None:
         if not topic.strip():
@@ -94,6 +99,7 @@ class KafkaOrderConsumer:
         self.settings = settings
         self.topic = topic
         self.store = store
+        self.downstream = downstream
         self._consumer = consumer or Consumer(settings.as_confluent_config())
         self._closed = False
         self._consumer.subscribe([topic])
@@ -138,6 +144,8 @@ class KafkaOrderConsumer:
                 raise TypeError("event JSON must be an object")
             event = parse_order_created_event(payload)
             self.store.store(event)
+            if self.downstream is not None:
+                self.downstream.notify(event)
         except Exception as exc:
             raise OrderConsumerError(
                 f"Order event processing failed before offset commit at "

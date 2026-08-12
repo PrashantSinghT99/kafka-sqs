@@ -7,10 +7,10 @@ This is the living implementation record for the project. Update it whenever a s
 | Item | Current value |
 |---|---|
 | Active phase | Phase 3 — Kafka consumer testing |
-| Current point | Step 10 — Build eventual assertions and consumer component test completed |
+| Current point | Step 11 — Add downstream HTTP verification completed |
 | Step status | Completed and verified |
-| Last completed step | Step 10 — Build eventual assertions and the consumer component test |
-| Next gate | Step 11 — Add downstream HTTP verification |
+| Last completed step | Step 11 — Add downstream HTTP verification |
+| Next gate | Step 12 — Prove idempotency |
 
 ## Repository state
 
@@ -18,7 +18,7 @@ This is the living implementation record for the project. Update it whenever a s
 |---|---|
 | Primary branch | `main` |
 | Remote | `origin` → `https://github.com/PrashantSinghT99/kafka-sqs.git` |
-| Last completed-step reference | Step 10 — `test: add eventual consumer assertions` |
+| Last completed-step reference | Step 11 — `feat: verify downstream order notifications` |
 | Remote tracking | `main` → `origin/main` |
 | Commit policy | One verified implementation-step commit per completed step |
 
@@ -38,6 +38,7 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-12 | Step 8 — Producer component test | Completed | 39 tests passed; positive HTTP-to-Kafka record and negative no-publication paths verified |
 | 2026-08-12 | Step 9 — Transactional order consumer | Completed | 44 tests passed; Kafka-to-PostgreSQL state, rollback, redelivery, and post-DB offset commit verified |
 | 2026-08-12 | Step 10 — Eventual consumer assertions | Completed | 50 tests passed; immediate/retry/timeout polling and asynchronous Kafka-to-PostgreSQL component flow verified |
+| 2026-08-12 | Step 11 — Downstream HTTP verification | Completed | 53 tests passed; request contract and scripted temporary-failure recovery verified through a real HTTP stub |
 
 ## Decision record
 
@@ -293,6 +294,20 @@ This is the living implementation record for the project. Update it whenever a s
 - Reason: This matches the real asynchronous relationship while keeping the consumer implementation deterministic and avoiding a permanent service process in component tests.
 - Consequence: The test separately awaits the consumer result to prove the post-database Kafka commit also completed; database visibility alone is not treated as offset-commit evidence.
 
+### D-037 — Use an owned in-process real-HTTP recording stub
+
+- Status: Accepted
+- Decision: Build a context-managed `ThreadingHTTPServer` stub that binds an ephemeral loopback port, queues response status/body pairs, and records immutable request evidence.
+- Reason: The scenario needs real TCP/HTTP serialization but not a separate container product. An owned stub is fast, deterministic, dependency-free, and sufficient for method/path/header/body verification.
+- Consequence: Every test owns its server lifecycle and response script. More advanced service virtualization can be introduced later without changing the consumer adapter contract.
+
+### D-038 — Treat downstream acceptance as part of successful event handling
+
+- Status: Accepted
+- Decision: Call the downstream adapter after the database store and before Kafka offset commit. Propagate event/correlation IDs as headers and retry only up to an explicitly configured attempt count.
+- Reason: Kafka must not advance when a required downstream effect is rejected. A small adapter-level attempt count demonstrates a temporary `503` followed by acceptance; Step 13 will define the complete retry/backoff/DLQ policy.
+- Consequence: Exhausted HTTP attempts raise a consumer error and leave the Kafka offset uncommitted. The database-to-offset crash window still requires Step 12 idempotency.
+
 ## Verification log
 
 ### Step 1 — Python project bootstrap
@@ -497,13 +512,32 @@ This is the living implementation record for the project. Update it whenever a s
   - SDK event is processed asynchronously into complete PostgreSQL state: Passed
   - Consumer completion separately proves offset commit completed: Passed
 
+### Step 11 — Downstream HTTP verification
+
+- Date: 2026-08-12
+- Unit/contract command: `.\.venv\Scripts\python.exe -m pytest -m "unit or contract" -q`
+- Unit/contract result: Passed — 40 selected tests passed
+- Focused command: `.\.venv\Scripts\python.exe -m pytest tests/integration/test_order_consumer_http.py -vv --junitxml="test-results\step11-http.xml"`
+- Focused result: Passed — 2 downstream HTTP integration tests passed in 17.90 seconds
+- Final command: `.\.venv\Scripts\python.exe -m pytest --junitxml="test-results\step11-full.xml"`
+- Final result: Passed — 53 tests collected, 53 passed in 31.41 seconds
+- Dependency result: HTTPX2 moved to runtime dependencies; `pip check` passed
+- Cleanup result: HTTP stub, Kafka, and PostgreSQL resources were all stopped after verification
+- Evidence result: JUnit includes consumer group, event/correlation IDs, and downstream path
+- Acceptance criteria:
+  - Real downstream request uses expected method and path: Passed
+  - Content type, correlation ID, and event ID headers are asserted: Passed
+  - JSON body contains exact order business fields: Passed
+  - Configurable stub returns success and failure responses: Passed
+  - Temporary `503` followed by `202` preserves identity and succeeds: Passed
+  - Downstream failure prevents Kafka offset commit in unit orchestration: Passed
+
 ## Open decisions
 
 These decisions are intentionally deferred until their implementation step:
 
 | Decision | Target step | Why deferred |
 |---|---|---|
-| HTTP stub product | Step 11 | Select based on Python Testcontainers support and verification API |
 
 ## Update protocol
 

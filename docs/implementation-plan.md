@@ -248,6 +248,8 @@ Learning checkpoint: explain why a bounded poll is faster and less flaky than a 
 
 ### Step 11 — Add downstream HTTP verification
 
+Status: Completed on 2026-08-12. Verification is recorded in [Decisions and Implementation Progress](decisions.md).
+
 Goal: demonstrate a second observable consumer effect.
 
 Tasks:
@@ -426,4 +428,4 @@ These are deliberately postponed until the baseline is reliable:
 
 ## Immediate next action
 
-Begin Step 11 only: add a disposable downstream HTTP stub, make the consumer call it after order creation, and verify request identity/body plus configurable success and transient failure behavior.
+Begin Step 12 only: make event handling idempotent by event ID, prove duplicate delivery creates one business/downstream effect, and prove a different event sharing the correlation ID is still processed.

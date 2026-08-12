@@ -87,4 +87,4 @@ assert record.event.data.order_id == "ORD-123"
 
 ## Current status
 
-Steps 1–10 are complete. The framework includes a reusable bounded `eventually` assertion that returns immediately on success and reports attempts, elapsed time, and last observed state on failure. The consumer component test now runs processing asynchronously and polls PostgreSQL without fixed sleeps. Step 11 adds downstream HTTP interaction verification.
+Steps 1–11 are complete. The consumer now makes a real correlation-aware downstream HTTP call, verified through a disposable recording stub. Tests assert method, path, headers, and body and script a temporary `503` followed by `202`; Kafka progress occurs only after downstream acceptance. Step 12 makes redelivery idempotent.
