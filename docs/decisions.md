@@ -6,11 +6,11 @@ This is the living implementation record for the project. Update it whenever a s
 
 | Item | Current value |
 |---|---|
-| Active phase | Phase 2 — Kafka producer testing |
-| Current point | Step 8 — Complete the Kafka producer component test completed |
+| Active phase | Phase 3 — Kafka consumer testing |
+| Current point | Step 9 — Add disposable PostgreSQL and the sample consumer completed |
 | Step status | Completed and verified |
-| Last completed step | Step 8 — Complete the Kafka producer component test |
-| Next gate | Step 9 — Add disposable PostgreSQL and the sample consumer |
+| Last completed step | Step 9 — Add disposable PostgreSQL and the sample consumer |
+| Next gate | Step 10 — Build eventual assertions and the consumer component test |
 
 ## Repository state
 
@@ -18,7 +18,7 @@ This is the living implementation record for the project. Update it whenever a s
 |---|---|
 | Primary branch | `main` |
 | Remote | `origin` → `https://github.com/PrashantSinghT99/kafka-sqs.git` |
-| Last completed-step reference | Step 8 — `test: prove API to Kafka producer boundary` |
+| Last completed-step reference | Step 9 — `feat: add transactional Kafka order consumer` |
 | Remote tracking | `main` → `origin/main` |
 | Commit policy | One verified implementation-step commit per completed step |
 
@@ -36,6 +36,7 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-12 | Step 6 — Kafka test probe | Completed | 30 tests passed; isolated observation, predicate matching, deadline diagnostics, and cleanup verified |
 | 2026-08-12 | Step 7 — Sample producer API | Completed | 37 tests passed; validation, event mapping, correlation propagation, and publish-failure mapping verified |
 | 2026-08-12 | Step 8 — Producer component test | Completed | 39 tests passed; positive HTTP-to-Kafka record and negative no-publication paths verified |
+| 2026-08-12 | Step 9 — Transactional order consumer | Completed | 44 tests passed; Kafka-to-PostgreSQL state, rollback, redelivery, and post-DB offset commit verified |
 
 ## Decision record
 
@@ -256,6 +257,27 @@ This is the living implementation record for the project. Update it whenever a s
 - Reason: “No event” can never be proved with an unbounded wait. A short deadline is meaningful only because the topic and correlation ID belong exclusively to that test.
 - Consequence: The negative test expects both HTTP `422` and a probe timeout with zero observed records; it never consumes from shared application state.
 
+### D-032 — Use Psycopg 3 with explicit SQL initialization
+
+- Status: Accepted
+- Decision: Pin `psycopg[binary]==3.3.4`, use a pinned `postgres:16.4-alpine` Testcontainer, and initialize the two learning tables with explicit SQL rather than introducing an ORM or migration framework.
+- Reason: The component needs visible transaction boundaries and only two tables. Psycopg connection contexts commit on success and roll back on exceptions, making the failure window straightforward to teach and test.
+- Consequence: `orders` stores the business state and source identifiers; `processed_events` stores event identity. A production schema migration tool remains a later operational concern.
+
+### D-033 — Commit Kafka only after the database transaction succeeds
+
+- Status: Accepted
+- Decision: Disable Kafka auto-commit and auto-offset-store, persist the order and processed event in one PostgreSQL transaction, then call `commit(message=..., asynchronous=False)`.
+- Reason: Committing the offset first could permanently lose the business update after a crash. Database-first ordering gives at-least-once delivery, so a crash after database commit but before offset commit may redeliver and requires idempotency.
+- Consequence: Step 9 proves rollback leaves the offset uncommitted by restarting the same group and receiving the record again. Step 12 will make the post-database/pre-offset duplicate window safe.
+
+### D-034 — Isolate PostgreSQL state by schema per test
+
+- Status: Accepted
+- Decision: Reuse one session PostgreSQL container but create a UUID-named schema for each test and drop it afterward with quoted SQL identifiers.
+- Reason: Function-owned schemas prevent cross-test data collisions while avoiding the startup cost of a database container per case.
+- Consequence: Integration evidence includes the schema name, and cleanup removes all test tables even after a failure.
+
 ## Verification log
 
 ### Step 1 — Python project bootstrap
@@ -419,13 +441,33 @@ This is the living implementation record for the project. Update it whenever a s
   - Invalid request returns `422` and produces no matching event: Passed
   - Negative observation is bounded to one second on an isolated topic: Passed
 
+### Step 9 — Disposable PostgreSQL and sample consumer
+
+- Date: 2026-08-12
+- Infrastructure/runtime: `postgres:16.4-alpine`, Psycopg `3.3.4`, Testcontainers `4.14.2`
+- Unit/contract command: `.\.venv\Scripts\python.exe -m pytest -m "unit or contract" -vv`
+- Unit/contract result: Passed — 34 selected tests passed
+- Focused command: `.\.venv\Scripts\python.exe -m pytest tests/integration/test_order_consumer.py -vv --junitxml="test-results\step9-consumer.xml"`
+- Focused result: Passed — 2 Kafka/PostgreSQL tests passed in 33.36 seconds
+- Final command: `.\.venv\Scripts\python.exe -m pytest --junitxml="test-results\step9-full.xml"`
+- Final result: Passed — 44 tests collected, 44 passed in 26.11 seconds
+- Dependency result: Editable installation and `pip check` passed
+- Cleanup result: No Kafka or PostgreSQL test container remained after verification
+- Evidence result: JUnit contains consumer group, event/correlation IDs, partition, offset, and isolated PostgreSQL schema
+- Acceptance criteria:
+  - SDK-published valid event creates exactly one complete order row: Passed
+  - Processed event identity is written in the same database transaction: Passed
+  - Consumer auto-commit and auto-offset-store are disabled: Passed
+  - Kafka offset commit occurs synchronously after database success: Passed
+  - Forced second-insert failure rolls back the first insert: Passed
+  - Same consumer group receives the rolled-back event again after restart: Passed
+
 ## Open decisions
 
 These decisions are intentionally deferred until their implementation step:
 
 | Decision | Target step | Why deferred |
 |---|---|---|
-| PostgreSQL client and migration method | Step 9 | Select alongside transactional idempotency design |
 | HTTP stub product | Step 11 | Select based on Python Testcontainers support and verification API |
 
 ## Update protocol

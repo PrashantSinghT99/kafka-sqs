@@ -204,6 +204,8 @@ Learning checkpoint: diagnose separately an API mapping failure, publish failure
 
 ### Step 9 — Add disposable PostgreSQL and the sample consumer
 
+Status: Completed on 2026-08-12. Verification is recorded in [Decisions and Implementation Progress](decisions.md).
+
 Goal: create a real observable consumer side effect.
 
 Tasks:
@@ -422,4 +424,4 @@ These are deliberately postponed until the baseline is reliable:
 
 ## Immediate next action
 
-Begin Step 9 only: add disposable PostgreSQL, transactional schema setup, and the sample Kafka consumer that commits its offset only after the database transaction succeeds.
+Begin Step 10 only: add the reusable bounded `eventually` assertion and refactor the consumer component scenario to run the consumer asynchronously while the test polls PostgreSQL for the observable result.

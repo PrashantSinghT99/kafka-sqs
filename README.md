@@ -87,4 +87,4 @@ assert record.event.data.order_id == "ORD-123"
 
 ## Current status
 
-Steps 1–8 are complete. Producer testing now proves the complete HTTP-to-Kafka boundary without starting the business consumer: positive input is validated through the broker record, while invalid input is proven not to publish within an isolated bounded observation window. Step 9 begins the independent consumer-testing path with PostgreSQL.
+Steps 1–9 are complete. Consumer testing now publishes a controlled SDK event and verifies transactional PostgreSQL state independently of the API. The sample consumer disables automatic offset progress and commits synchronously only after the database transaction succeeds; a rollback/restart test proves redelivery. Step 10 adds reusable eventual assertions around asynchronous processing.
