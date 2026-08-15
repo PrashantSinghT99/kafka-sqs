@@ -7,7 +7,7 @@ import os
 
 
 @dataclass(frozen=True)
-class LocalLabSettings:
+class LocalLabConfig:
     kafka_bootstrap_servers: str = "kafka:9092"
     kafka_topic: str = "orders.created.local"
     kafka_dlq_topic: str = "orders.created.local.dlq"
@@ -23,7 +23,7 @@ class LocalLabSettings:
     adminer_url: str = "http://127.0.0.1:8089"
 
     @classmethod
-    def from_environment(cls) -> LocalLabSettings:
+    def from_environment(cls) -> LocalLabConfig:
         defaults = cls()
         return cls(
             kafka_bootstrap_servers=_value(

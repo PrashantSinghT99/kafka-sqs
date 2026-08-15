@@ -11,21 +11,26 @@ from testcontainers.kafka import KafkaContainer
 from testcontainers.localstack import LocalStackContainer
 from testcontainers.postgres import PostgresContainer
 
-from tests.helpers.container_images import (
+from tests.helpers.docker import (
+    DockerUnavailableError,
     KAFKA_IMAGE,
     LOCALSTACK_IMAGE,
     POSTGRES_IMAGE,
+    require_docker,
 )
-from tests.helpers.infrastructure.docker import DockerUnavailableError, require_docker
-from order_app.messaging.kafka import (
+from order_app.messaging import (
     KafkaAdminError,
-    KafkaTestAdmin,
+    KafkaTopicAdmin,
     TopicMetadata,
     TopicSpec,
 )
-from order_app.order_consumer import PostgresOrderStore
-from tests.helpers.kafka_topic_names import unique_topic_name
-from tests.helpers.sqs_queues import SqsQueueSet, SqsTestResources
+from order_app.order_processing import PostgresOrderStore
+from tests.helpers.kafka import unique_topic_name
+from tests.helpers.sqs import (
+    SqsQueueSet,
+    create_sqs_queue_set,
+    delete_sqs_queue_set,
+)
 
 
 @pytest.fixture(scope="session")
@@ -66,15 +71,15 @@ def kafka_bootstrap_servers(kafka_container: KafkaContainer) -> str:
 
 
 @pytest.fixture(scope="session")
-def kafka_admin(kafka_bootstrap_servers: str) -> KafkaTestAdmin:
+def kafka_admin(kafka_bootstrap_servers: str) -> KafkaTopicAdmin:
     """Expose the reusable topic lifecycle helper for the test session."""
-    return KafkaTestAdmin(kafka_bootstrap_servers)
+    return KafkaTopicAdmin(kafka_bootstrap_servers)
 
 
 @pytest.fixture
 def kafka_topic(
     request: pytest.FixtureRequest,
-    kafka_admin: KafkaTestAdmin,
+    kafka_admin: KafkaTopicAdmin,
 ) -> Iterator[TopicMetadata]:
     """Provision one isolated three-partition topic for a single test."""
     spec = TopicSpec(name=unique_topic_name(request.node.nodeid))
@@ -101,7 +106,7 @@ def kafka_topic(
 @pytest.fixture
 def kafka_dlq_topic(
     request: pytest.FixtureRequest,
-    kafka_admin: KafkaTestAdmin,
+    kafka_admin: KafkaTopicAdmin,
 ) -> Iterator[TopicMetadata]:
     """Provision a second isolated topic for terminal failure evidence."""
     spec = TopicSpec(name=unique_topic_name(f"{request.node.nodeid}-dlq"))
@@ -197,8 +202,7 @@ def sqs_queues(
     sqs_client,
 ) -> Iterator[SqsQueueSet]:
     """Give one test its own standard, FIFO, and DLQ queue family."""
-    resources = SqsTestResources(sqs_client)
-    queues = resources.create_queue_set(request.node.nodeid)
+    queues = create_sqs_queue_set(sqs_client, request.node.nodeid)
     request.node.user_properties.extend(
         [
             ("sqs_standard_url", queues.standard_url),
@@ -209,4 +213,4 @@ def sqs_queues(
     try:
         yield queues
     finally:
-        resources.delete_queue_set(queues)
+        delete_sqs_queue_set(sqs_client, queues)

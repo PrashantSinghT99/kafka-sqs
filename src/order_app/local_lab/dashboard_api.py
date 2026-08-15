@@ -9,17 +9,17 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 
-from order_app.messaging.kafka import KafkaEventProducer, KafkaTestAdmin, ProducerSettings
-from order_app.messaging.sqs import SqsEventClient
-from order_app.local_lab.control import ConsumerControls
-from order_app.local_lab.infrastructure import build_sqs_client, get_queue_url
-from order_app.local_lab.settings import LocalLabSettings
+from order_app.messaging import KafkaEventPublisher, KafkaTopicAdmin, KafkaPublisherConfig
+from order_app.messaging import SqsEventPublisher
+from order_app.local_lab.consumer_control_store import ConsumerControlStore
+from order_app.local_lab.resource_setup import build_sqs_client, get_queue_url
+from order_app.local_lab.config import LocalLabConfig
 from order_app.order_api import create_order_app
-from order_app.order_consumer import PostgresOrderStore, StoredOrder
+from order_app.order_processing import PostgresOrderStore, StoredOrder
 
 
 def create_local_lab_app() -> FastAPI:
-    settings = LocalLabSettings.from_environment()
+    settings = LocalLabConfig.from_environment()
     sqs_client = build_sqs_client(settings)
     sqs_queue_url = get_queue_url(sqs_client, settings.sqs_queue_name)
     kafka_store = PostgresOrderStore(
@@ -32,8 +32,8 @@ def create_local_lab_app() -> FastAPI:
     )
     kafka_store.initialize()
     sqs_store.initialize()
-    kafka_admin = KafkaTestAdmin(settings.kafka_bootstrap_servers)
-    controls = ConsumerControls(settings.postgres_dsn)
+    kafka_admin = KafkaTopicAdmin(settings.kafka_bootstrap_servers)
+    controls = ConsumerControlStore(settings.postgres_dsn)
     controls.initialize()
 
     app = FastAPI(
@@ -129,14 +129,14 @@ def create_local_lab_app() -> FastAPI:
     app.mount(
         "/kafka",
         create_order_app(
-            KafkaEventProducer(ProducerSettings(settings.kafka_bootstrap_servers)),
+            KafkaEventPublisher(KafkaPublisherConfig(settings.kafka_bootstrap_servers)),
             settings.kafka_topic,
         ),
         name="kafka-producer",
     )
     app.mount(
         "/sqs",
-        create_order_app(SqsEventClient(sqs_client), sqs_queue_url),
+        create_order_app(SqsEventPublisher(sqs_client), sqs_queue_url),
         name="sqs-producer",
     )
     return app

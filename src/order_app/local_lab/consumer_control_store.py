@@ -8,7 +8,7 @@ import psycopg
 _BROKERS = frozenset({"kafka", "sqs"})
 
 
-class ConsumerControls:
+class ConsumerControlStore:
     def __init__(self, dsn: str) -> None:
         self.dsn = dsn
 

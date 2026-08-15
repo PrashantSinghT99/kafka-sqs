@@ -1,4 +1,4 @@
-# Kafka and SQS Test Automation Learning Framework
+# Kafka and SQS Test Automation Framework
 
 This repository is a hands-on project for learning how an SDET architect tests asynchronous producer and consumer systems without depending on a UI.
 
@@ -14,6 +14,7 @@ The project will build a Python/pytest test framework around real Kafka and SQS-
 ## Agreed design
 
 - [Architecture](docs/architecture.md)
+- [Code map: what every folder and file does](docs/code-map.md)
 - [Step-by-step implementation plan](docs/implementation-plan.md)
 - [Decisions and implementation progress](docs/decisions.md)
 
@@ -69,7 +70,7 @@ python -m pytest -m "integration and kafka"
 The integration suite starts and removes its own pinned Kafka container. You do
 not need to install Kafka on the host.
 
-Run the sample producer API against a configured Kafka topic:
+Run the order producer API against a configured Kafka topic:
 
 ```powershell
 $env:KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
@@ -121,4 +122,4 @@ assert record.event.data.order_id == "ORD-123"
 
 ## Current status
 
-All 18 automated-framework baseline steps plus the Step 19 visual local-lab extension are complete. The framework independently tests Kafka and SQS producers/consumers, contracts, database and HTTP effects, idempotency, retry/DLQ, ordering, recovery, visibility, redrive, FIFO behavior, and deduplication. GitHub Actions provides fast, Kafka, and SQS gates with JUnit evidence and bounded job timeouts. The complete local baseline currently contains 81 passing tests.
+All 18 automated-framework baseline steps plus the visual local-lab and structure-cleanup extensions are complete. The framework independently tests Kafka and SQS producers/consumers, contracts, database and HTTP effects, idempotency, retry/DLQ, ordering, recovery, visibility, redrive, FIFO behavior, and deduplication. GitHub Actions provides fast, Kafka, and SQS gates with JUnit evidence and bounded job timeouts. The complete local baseline currently contains 82 passing tests.

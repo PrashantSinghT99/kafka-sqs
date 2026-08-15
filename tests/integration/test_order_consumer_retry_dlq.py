@@ -6,14 +6,14 @@ from uuid import uuid4
 import pytest
 
 from order_app.messaging.contracts import make_order_created_event
-from tests.helpers.http import RecordingHttpStub
-from order_app.messaging.kafka import (
-    KafkaEventProducer,
-    ProducerSettings,
+from tests.helpers.client_stub import RecordingHttpStub
+from order_app.messaging import (
+    KafkaEventPublisher,
+    KafkaPublisherConfig,
     TopicMetadata,
 )
-from tests.helpers.kafka_event_probe import KafkaEventProbe, ProbeSettings
-from order_app.order_consumer import (
+from tests.helpers.kafka import KafkaEventProbe, ProbeSettings
+from order_app.order_processing import (
     ConsumerSettings,
     DownstreamNotificationError,
     KafkaDeadLetterPublisher,
@@ -33,7 +33,7 @@ def test_transient_downstream_failure_recovers_on_configured_attempt(
     order_store: PostgresOrderStore,
 ) -> None:
     event = make_order_created_event(order_id="ORD-RETRY-POLICY-1")
-    KafkaEventProducer(ProducerSettings(kafka_bootstrap_servers)).publish_order_created(
+    KafkaEventPublisher(KafkaPublisherConfig(kafka_bootstrap_servers)).publish_order_created(
         kafka_topic.name,
         event,
     )
@@ -85,7 +85,7 @@ def test_exhausted_poison_event_reaches_dlq_and_later_event_continues(
         order_id="ORD-POISON-1",
         correlation_id=correlation_id,
     )
-    producer = KafkaEventProducer(ProducerSettings(kafka_bootstrap_servers))
+    producer = KafkaEventPublisher(KafkaPublisherConfig(kafka_bootstrap_servers))
     producer.publish_order_created(kafka_topic.name, poison)
     producer.publish_order_created(kafka_topic.name, later_valid)
     retry_policy = RetryPolicy(

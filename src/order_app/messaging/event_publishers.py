@@ -1,23 +1,44 @@
-"""Reliable Kafka publishing primitives for controlled test events."""
+"""Shared event-publisher contract with Kafka and SQS implementations."""
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import json
-from typing import Any, Protocol
+from typing import Any, Generic, Protocol, TypeVar
 
+from botocore.exceptions import BotoCoreError, ClientError
 from confluent_kafka import KafkaException, Message, Producer
 
 from order_app.messaging.contracts import OrderCreatedEvent, validate_order_created_contract
 from order_app.messaging.contracts.models import event_to_wire_dict
 
 
-class KafkaPublishError(RuntimeError):
+ReceiptT = TypeVar("ReceiptT")
+
+
+class EventPublishError(RuntimeError):
+    """Base failure raised when a broker does not accept an event."""
+
+
+class EventPublisher(ABC, Generic[ReceiptT]):
+    """Common publisher shape used by the HTTP producer boundary."""
+
+    @abstractmethod
+    def publish_order_created(
+        self,
+        destination: str,
+        event: OrderCreatedEvent,
+    ) -> ReceiptT:
+        """Publish one validated order event to a configured broker destination."""
+
+
+class KafkaPublishError(EventPublishError):
     """Raised when Kafka does not acknowledge a test event successfully."""
 
 
 @dataclass(frozen=True)
-class ProducerSettings:
+class KafkaPublisherConfig:
     """Explicit producer reliability and timeout settings."""
 
     bootstrap_servers: str
@@ -44,7 +65,7 @@ class ProducerSettings:
 
 
 @dataclass(frozen=True)
-class PublishedRecord:
+class KafkaPublishReceipt:
     """Broker acknowledgement returned to a producer test."""
 
     topic: str
@@ -86,12 +107,12 @@ def order_created_headers(
     )
 
 
-class KafkaEventProducer:
+class KafkaEventPublisher(EventPublisher[KafkaPublishReceipt]):
     """Publish a contract-valid event and wait for its delivery report."""
 
     def __init__(
         self,
-        settings: ProducerSettings,
+        settings: KafkaPublisherConfig,
         *,
         producer: _ProducerClient | None = None,
     ) -> None:
@@ -102,7 +123,7 @@ class KafkaEventProducer:
         self,
         topic: str,
         event: OrderCreatedEvent,
-    ) -> PublishedRecord:
+    ) -> KafkaPublishReceipt:
         """Publish one event synchronously for deterministic test control."""
         if not topic.strip():
             raise ValueError("Kafka topic must not be blank.")
@@ -152,7 +173,7 @@ class KafkaEventProducer:
 
         message = delivered_message[0]
         timestamp_ms = _message_timestamp_ms(message)
-        return PublishedRecord(
+        return KafkaPublishReceipt(
             topic=message.topic(),
             partition=message.partition(),
             offset=message.offset(),
@@ -165,3 +186,81 @@ class KafkaEventProducer:
 def _message_timestamp_ms(message: Message) -> int | None:
     _, timestamp_ms = message.timestamp()
     return timestamp_ms if timestamp_ms is not None and timestamp_ms >= 0 else None
+
+
+@dataclass(frozen=True)
+class SqsPublishReceipt:
+    """SQS acknowledgement returned after `SendMessage` succeeds."""
+
+    message_id: str
+    md5_of_body: str
+    sequence_number: str | None = None
+
+
+class SqsPublishError(EventPublishError):
+    """Raised when SQS rejects an order event."""
+
+
+class SqsEventPublisher(EventPublisher[SqsPublishReceipt]):
+    """Publish validated order events through a supplied boto3 SQS client."""
+
+    def __init__(self, client: Any) -> None:
+        self._client = client
+
+    def publish_order_created(
+        self,
+        destination: str,
+        event: OrderCreatedEvent,
+        *,
+        message_group_id: str | None = None,
+        deduplication_id: str | None = None,
+    ) -> SqsPublishReceipt:
+        if not destination.strip():
+            raise ValueError("SQS queue URL must not be blank.")
+        validate_order_created_contract(event)
+        request: dict[str, Any] = {
+            "QueueUrl": destination,
+            "MessageBody": json.dumps(
+                event_to_wire_dict(event),
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            "MessageAttributes": {
+                "event-type": {
+                    "DataType": "String",
+                    "StringValue": event.event_type,
+                },
+                "event-version": {
+                    "DataType": "Number",
+                    "StringValue": str(event.event_version),
+                },
+                "event-id": {
+                    "DataType": "String",
+                    "StringValue": str(event.event_id),
+                },
+                "correlation-id": {
+                    "DataType": "String",
+                    "StringValue": event.correlation_id,
+                },
+                "content-type": {
+                    "DataType": "String",
+                    "StringValue": "application/json",
+                },
+            },
+        }
+        if message_group_id is not None:
+            request["MessageGroupId"] = message_group_id
+            request["MessageDeduplicationId"] = deduplication_id or str(
+                event.event_id
+            )
+        try:
+            response = self._client.send_message(**request)
+        except (BotoCoreError, ClientError, OSError) as exc:
+            raise SqsPublishError(
+                f"SQS rejected event {event.event_id} for queue {destination!r}: {exc}"
+            ) from exc
+        return SqsPublishReceipt(
+            message_id=response["MessageId"],
+            md5_of_body=response["MD5OfMessageBody"],
+            sequence_number=response.get("SequenceNumber"),
+        )

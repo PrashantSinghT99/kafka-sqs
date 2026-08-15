@@ -1,9 +1,14 @@
-"""Docker readiness checks with test-friendly diagnostics."""
+"""Docker readiness checks and pinned integration-test images."""
 
 from __future__ import annotations
 
 import docker
 from docker.errors import DockerException
+
+
+KAFKA_IMAGE = "confluentinc/cp-kafka:7.6.0"
+LOCALSTACK_IMAGE = "localstack/localstack:3.5.0"
+POSTGRES_IMAGE = "postgres:16.4-alpine"
 
 
 class DockerUnavailableError(RuntimeError):
@@ -29,4 +34,3 @@ def require_docker() -> None:
     finally:
         if client is not None:
             client.close()
-

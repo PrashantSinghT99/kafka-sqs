@@ -7,10 +7,10 @@ from typing import Any
 
 import boto3
 
-from order_app.messaging.kafka import KafkaTestAdmin, TopicSpec
-from order_app.local_lab.control import ConsumerControls
-from order_app.local_lab.settings import LocalLabSettings
-from order_app.order_consumer import PostgresOrderStore
+from order_app.messaging import KafkaTopicAdmin, TopicSpec
+from order_app.local_lab.consumer_control_store import ConsumerControlStore
+from order_app.local_lab.config import LocalLabConfig
+from order_app.order_processing import PostgresOrderStore
 
 
 LOCAL_TOPIC_CONFIG = {
@@ -19,7 +19,7 @@ LOCAL_TOPIC_CONFIG = {
 }
 
 
-def build_sqs_client(settings: LocalLabSettings) -> Any:
+def build_sqs_client(settings: LocalLabConfig) -> Any:
     return boto3.client(
         "sqs",
         endpoint_url=settings.sqs_endpoint_url,
@@ -29,7 +29,7 @@ def build_sqs_client(settings: LocalLabSettings) -> Any:
     )
 
 
-def ensure_topic(admin: KafkaTestAdmin, name: str) -> None:
+def ensure_topic(admin: KafkaTopicAdmin, name: str) -> None:
     if name not in admin.list_topic_names():
         admin.create_topic(
             TopicSpec(
@@ -41,7 +41,7 @@ def ensure_topic(admin: KafkaTestAdmin, name: str) -> None:
         )
 
 
-def ensure_sqs_queues(client: Any, settings: LocalLabSettings) -> tuple[str, str]:
+def ensure_sqs_queues(client: Any, settings: LocalLabConfig) -> tuple[str, str]:
     dlq_url = client.create_queue(
         QueueName=settings.sqs_dlq_name,
         Attributes={
@@ -73,8 +73,8 @@ def get_queue_url(client: Any, queue_name: str) -> str:
     return client.get_queue_url(QueueName=queue_name)["QueueUrl"]
 
 
-def initialize_lab(settings: LocalLabSettings) -> None:
-    admin = KafkaTestAdmin(settings.kafka_bootstrap_servers, timeout_seconds=20)
+def initialize_lab(settings: LocalLabConfig) -> None:
+    admin = KafkaTopicAdmin(settings.kafka_bootstrap_servers, timeout_seconds=20)
     ensure_topic(admin, settings.kafka_topic)
     ensure_topic(admin, settings.kafka_dlq_topic)
 
@@ -83,7 +83,7 @@ def initialize_lab(settings: LocalLabSettings) -> None:
 
     for schema in (settings.kafka_schema, settings.sqs_schema):
         PostgresOrderStore(settings.postgres_dsn, schema=schema).initialize()
-    ConsumerControls(settings.postgres_dsn).initialize()
+    ConsumerControlStore(settings.postgres_dsn).initialize()
 
     print(
         "Local lab initialized: "

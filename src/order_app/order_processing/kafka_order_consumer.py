@@ -11,9 +11,9 @@ from typing import Any, Protocol
 from confluent_kafka import Consumer, Message
 
 from order_app.messaging.contracts import parse_order_created_event
-from order_app.order_consumer.downstream import DownstreamNotificationError
-from order_app.order_consumer.reliability import DeadLetterFailure, RetryPolicy
-from order_app.order_consumer.store import EventStoreResult, PostgresOrderStore
+from order_app.order_processing.notification_client import DownstreamNotificationError
+from order_app.order_processing.retry_and_dead_letter import DeadLetterFailure, RetryPolicy
+from order_app.order_processing.postgres_order_store import EventStoreResult, PostgresOrderStore
 
 
 class OrderConsumerError(RuntimeError):
@@ -30,7 +30,7 @@ class ConsumerSettings:
 
     bootstrap_servers: str
     group_id: str
-    client_id: str = "sample-order-consumer"
+    client_id: str = "order-app-consumer"
     offset_reset: str = "earliest"
     poll_interval_seconds: float = 0.2
 

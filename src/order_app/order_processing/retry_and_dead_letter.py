@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from confluent_kafka import Message, Producer
 
-from order_app.messaging.kafka import KafkaPublishError, PublishedRecord
+from order_app.messaging import KafkaPublishError, KafkaPublishReceipt
 
 
 @dataclass(frozen=True)
@@ -85,7 +85,7 @@ class KafkaDeadLetterPublisher:
         self._producer = producer or Producer(
             {
                 "bootstrap.servers": bootstrap_servers,
-                "client.id": "sample-order-dlq-producer",
+                "client.id": "order-app-dlq-producer",
                 "enable.idempotence": True,
                 "acks": "all",
                 "delivery.timeout.ms": int(delivery_timeout_seconds * 1_000),
@@ -96,7 +96,7 @@ class KafkaDeadLetterPublisher:
         self,
         topic: str,
         failure: DeadLetterFailure,
-    ) -> PublishedRecord:
+    ) -> KafkaPublishReceipt:
         wire = failure.to_wire_dict()
         key = failure.event_id or failure.key or str(wire["dead_letter_id"])
         delivered: list[Message] = []
@@ -133,7 +133,7 @@ class KafkaDeadLetterPublisher:
 
         message = delivered[0]
         _, timestamp_ms = message.timestamp()
-        return PublishedRecord(
+        return KafkaPublishReceipt(
             topic=message.topic(),
             partition=message.partition(),
             offset=message.offset(),

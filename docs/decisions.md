@@ -7,10 +7,10 @@ This is the living implementation record for the project. Update it whenever a s
 | Item | Current value |
 |---|---|
 | Active phase | Phase 8 — Structure and naming cleanup |
-| Current point | Step 21A — Separate runtime code from test support |
+| Current point | Step 21C — Consolidate helpers and broker publishers |
 | Step status | Completed and verified |
-| Last completed step | Step 21A — Runtime/test responsibility separation |
-| Next gate | Step 21B — Rename vague runtime modules by their concrete responsibility |
+| Last completed step | Step 21C — Four-file helpers and shared publisher hierarchy |
+| Next gate | Walk through `docs/code-map.md`, then map each runtime boundary to its automated tests |
 
 ## Repository state
 
@@ -18,7 +18,7 @@ This is the living implementation record for the project. Update it whenever a s
 |---|---|
 | Primary branch | `main` |
 | Remote | `origin` → `https://github.com/PrashantSinghT99/kafka-sqs.git` |
-| Last completed-step reference | Step 19 — `feat: add visual local messaging lab` |
+| Last completed-step reference | Step 21A — commit `85c5999` |
 | Remote tracking | `main` → `origin/main` |
 | Commit policy | One verified implementation-step commit per completed step |
 
@@ -51,6 +51,8 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-12 | Step 19 — Final local-lab gate | Completed | 81 tests passed while lab ran; Status/Stop/Start preserved Kafka and SQS database rows; disposable test containers cleaned |
 | 2026-08-15 | Step 20 — Package-boundary naming cleanup | Completed | `order_app` contains application/runtime code; `tests/helpers` contains pytest support; 81 tests passed |
 | 2026-08-15 | Step 21A — Runtime/test responsibility separation | Completed | Fast gate: 53 tests passed; complete regression: 81 tests passed |
+| 2026-08-15 | Step 21B — Responsibility-based file and folder names | Completed | Imports/Compose entry points passed; 81 tests passed; rebuilt visual lab healthy with data preserved |
+| 2026-08-15 | Step 21C — Helper and publisher consolidation | Completed | 54 fast tests and 82 total tests passed; rebuilt visual lab healthy with 8 existing orders preserved |
 
 ## Decision record
 
@@ -452,6 +454,20 @@ This is the living implementation record for the project. Update it whenever a s
 - Decision: Keep production-capable publishers and consumers under `src/order_app`, but move broker observation probes, generated test resource names, and pinned Testcontainers image names to `tests/helpers`.
 - Reason: These objects are needed by automated tests, but the running order application never calls them. Packaging them beside runtime clients made unused test machinery appear to be part of the application.
 - Consequence: `SqsEventClient` is reduced to publishing only; the SQS receive-and-assert behavior is named `SqsQueueProbe` under test helpers. Kafka/SQS resource factories and all container image pins also live under the test boundary.
+
+### D-058 — Name modules for the responsibility visible in the repository tree
+
+- Status: Accepted
+- Decision: Replace context-free module names such as `app.py`, `client.py`, `store.py`, `workers.py`, and `infrastructure.py` with responsibility names such as `http_api.py`, `event_publisher.py`, `postgres_order_store.py`, `consumer_worker.py`, and `resource_setup.py`.
+- Reason: A learner should understand the likely purpose of a file before opening it. Generic names were technically valid but made runtime wiring and duplicate-looking concepts difficult to distinguish.
+- Consequence: The business-processing package is `order_processing`; one-file test-helper subpackages are flattened; `docs/code-map.md` records every runtime and helper file, its purpose, and its caller. Narrow internal names such as `contracts/models.py` remain because their parent folder supplies the missing context.
+
+### D-059 — Consolidate by domain and require every class to justify itself
+
+- Status: Accepted; supersedes the helper-file layout in D-057 and publisher layout in D-058.
+- Decision: Keep exactly four implementation modules under `tests/helpers` (`kafka.py`, `sqs.py`, `client_stub.py`, and `docker.py`). Put both broker publishers in `messaging/event_publishers.py` behind the generic `EventPublisher` base class.
+- Reason: Splitting a single test domain across resource-name, probe, image, and readiness modules added navigation cost without creating useful boundaries. Kafka and SQS publishers perform the same application role and are clearer as child implementations of one explicit contract.
+- Consequence: Stateless SQS resource/probe wrappers become functions. Classes remain only for state/lifecycle, structured data, polymorphic behavior, or distinct exception handling. The required `tests/helpers/__init__.py` package marker contains no helper implementation.
 
 ## Verification log
 
@@ -895,6 +911,54 @@ This is the living implementation record for the project. Update it whenever a s
   - Container images are defined once under test support: Passed
   - Unit and contract tests remain green: Passed
   - Complete Kafka/SQS regression remains green: Passed
+
+### Step 21B — Make runtime wiring and file ownership explicit
+
+- Date: 2026-08-15
+- Decision: D-058
+- Business folders: `order_api`, `messaging`, and `order_processing`
+- Visual runtime files: `dashboard_api.py`, `consumer_worker.py`, `initialize_resources.py`, `resource_setup.py`, `consumer_control_store.py`, and `config.py`
+- Test helpers: Flattened to explicitly named modules directly under `tests/helpers`
+- Ownership reference: `docs/code-map.md`
+- Stale-name scan: No former runtime import paths or class names remain outside historical decision records
+- Fast verification command: `.\.venv\Scripts\python.exe -m pytest -m "unit or contract" -q`
+- Fast result: Passed — 53 selected tests passed, 28 deselected in 4.18 seconds
+- Collection result: All 81 tests collected successfully
+- Compose configuration: Passed; all renamed executable modules import successfully
+- Full verification command: `.\.venv\Scripts\python.exe -m pytest -q`
+- Full result: Passed — 81 tests passed, 1 dependency deprecation warning, in 77.21 seconds
+- Persistent-lab verification: Rebuilt with `scripts/local-lab.ps1 -Action Start -NoBrowser`; dashboard, Kafka worker, and SQS worker use the renamed modules and are healthy
+- Preserved-state evidence: Dashboard reported Kafka, SQS, and PostgreSQL up with 5 Kafka orders and 3 SQS orders still present
+- Acceptance criteria:
+  - File purpose is understandable from its folder plus filename: Passed
+  - Runtime and test-helper ownership is documented: Passed
+  - No one-file `http` or `infrastructure` helper subpackages remain: Passed
+  - Compose runs the renamed modules: Passed
+  - Existing persistent learning data survives the rebuild: Passed
+  - Complete regression suite remains green: Passed
+
+### Step 21C — Consolidate helpers and broker publishers
+
+- Date: 2026-08-15
+- Decision: D-059
+- Test-helper result: Exactly four implementation files remain under `tests/helpers`: `kafka.py`, `sqs.py`, `client_stub.py`, and `docker.py`
+- Function conversion: Removed `SqsQueueProbe` and `SqsTestResources`; their operations are explicit functions in `tests/helpers/sqs.py`
+- Publisher result: `EventPublisher` is the common base; `KafkaEventPublisher` and `SqsEventPublisher` are child implementations in `messaging/event_publishers.py`
+- Topic administration: `messaging/kafka_topic_admin.py` remains separate because topic lifecycle is not event publishing
+- Fast command: `.\.venv\Scripts\python.exe -m pytest -m "unit or contract" -q`
+- Fast result: Passed — 54 selected tests passed, 28 deselected in 4.55 seconds
+- Full command: `.\.venv\Scripts\python.exe -m pytest -q`
+- Full result: Passed — 82 tests passed, 1 dependency deprecation warning, in 65.57 seconds
+- Persistent-lab result: Rebuilt normally with named volumes preserved; dashboard, Kafka, SQS, and PostgreSQL reported healthy
+- Runtime hierarchy evidence: Both publisher child classes imported inside the rebuilt dashboard container and passed `issubclass(..., EventPublisher)`
+- Preserved-state evidence: 5 Kafka orders and 3 SQS orders remained after the rebuild
+- Acceptance criteria:
+  - Helper implementation is limited to the four requested domain files: Passed
+  - Kafka/SQS publishers use one base/child module: Passed
+  - Stateless wrapper classes were converted to functions: Passed
+  - Stateful lifecycle classes remain where justified: Passed
+  - Full disposable-infrastructure behavior remains green: Passed
+  - Persistent visual application remains healthy with data preserved: Passed
 
 ## Open decisions
 

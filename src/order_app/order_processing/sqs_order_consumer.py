@@ -1,4 +1,4 @@
-"""SQS adapter for the sample order consumer business store."""
+"""SQS order consumer that persists successful messages before deletion."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 from order_app.messaging.contracts import parse_order_created_event
-from order_app.order_consumer.store import PostgresOrderStore
+from order_app.order_processing.postgres_order_store import PostgresOrderStore
 
 
 class SqsOrderConsumer:

@@ -7,8 +7,8 @@ from typing import Any
 import pytest
 
 from order_app.messaging.contracts import make_order_created_event
-from order_app.messaging.kafka import serialize_order_created_event
-from tests.helpers.kafka_event_probe import (
+from order_app.messaging import serialize_order_created_event
+from tests.helpers.kafka import (
     KafkaEventProbe,
     KafkaProbeTimeout,
     ProbeSettings,

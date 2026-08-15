@@ -1,26 +1,26 @@
-"""FastAPI producer service used by the component-testing lessons."""
+"""FastAPI boundary that validates orders and publishes events."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
 import os
-from typing import Annotated, Protocol
+from typing import Annotated, Any
 from uuid import UUID, uuid4
 
 from fastapi import FastAPI, Header, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from order_app.messaging.contracts import OrderCreatedEvent, make_order_created_event
-from order_app.messaging.kafka import (
-    KafkaEventProducer,
-    KafkaPublishError,
-    ProducerSettings,
-    PublishedRecord,
+from order_app.messaging.contracts import make_order_created_event
+from order_app.messaging import (
+    EventPublishError,
+    EventPublisher,
+    KafkaEventPublisher,
+    KafkaPublisherConfig,
 )
 
 
 class CreateOrderRequest(BaseModel):
-    """Validated business input accepted by the sample producer API."""
+    """Validated business input accepted by the order producer API."""
 
     model_config = ConfigDict(extra="forbid", strict=True)
 
@@ -39,22 +39,12 @@ class CreateOrderResponse(BaseModel):
     event_id: UUID
 
 
-class OrderEventPublisher(Protocol):
-    """Small seam that keeps HTTP mapping tests independent of Kafka."""
-
-    def publish_order_created(
-        self,
-        topic: str,
-        event: OrderCreatedEvent,
-    ) -> PublishedRecord: ...
-
-
 OrderIdFactory = Callable[[], str]
 IdentifierFactory = Callable[[], str]
 
 
 def create_order_app(
-    publisher: OrderEventPublisher,
+    publisher: EventPublisher[Any],
     topic: str,
     *,
     order_id_factory: OrderIdFactory | None = None,
@@ -96,7 +86,7 @@ def create_order_app(
         )
         try:
             publisher.publish_order_created(topic, event)
-        except KafkaPublishError as exc:
+        except EventPublishError as exc:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Order event could not be published.",
@@ -116,7 +106,7 @@ def create_configured_order_app() -> FastAPI:
     """Build the runnable service from explicit environment configuration."""
     bootstrap_servers = _required_environment("KAFKA_BOOTSTRAP_SERVERS")
     topic = _required_environment("ORDER_EVENTS_TOPIC")
-    publisher = KafkaEventProducer(ProducerSettings(bootstrap_servers))
+    publisher = KafkaEventPublisher(KafkaPublisherConfig(bootstrap_servers))
     return create_order_app(publisher, topic)
 
 

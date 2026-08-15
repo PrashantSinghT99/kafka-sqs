@@ -1,5 +1,5 @@
-"""Persistent visual learning mode for the messaging sample."""
+"""Persistent visual learning mode for the order application."""
 
-from order_app.local_lab.settings import LocalLabSettings
+from order_app.local_lab.config import LocalLabConfig
 
-__all__ = ["LocalLabSettings"]
+__all__ = ["LocalLabConfig"]

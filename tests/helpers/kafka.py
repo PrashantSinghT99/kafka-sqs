@@ -1,4 +1,4 @@
-"""Independent Kafka consumer probe for producer-side tests."""
+"""Kafka-only test support: resource names and independent event observation."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
 import json
+import re
 from time import monotonic
 from typing import Any, Protocol
 from uuid import UUID, uuid4
@@ -18,6 +19,37 @@ from order_app.messaging.contracts import (
     OrderCreatedEvent,
     parse_order_created_event,
 )
+
+
+MAX_TOPIC_NAME_LENGTH = 249
+_INVALID_TOPIC_CHARACTERS = re.compile(r"[^a-z0-9._-]+")
+_REPEATED_SEPARATORS = re.compile(r"[-_.]{2,}")
+
+
+def unique_topic_name(
+    test_name: str,
+    *,
+    prefix: str = "order-app-test",
+    token: str | None = None,
+) -> str:
+    """Return a readable Kafka topic name with a collision-resistant suffix."""
+    unique_token = token or uuid4().hex[:12]
+    base = _normalize_topic_segment(f"{prefix}-{test_name}") or "order-app-test"
+    normalized_token = _normalize_topic_segment(unique_token) or uuid4().hex[:12]
+    suffix = f"-{normalized_token}"
+
+    available_base_length = MAX_TOPIC_NAME_LENGTH - len(suffix)
+    if available_base_length < 1:
+        raise ValueError("The topic-name token exceeds Kafka's 249-character limit.")
+
+    truncated_base = base[:available_base_length].rstrip("-_.") or "t"
+    return f"{truncated_base}{suffix}"
+
+
+def _normalize_topic_segment(value: str) -> str:
+    normalized = _INVALID_TOPIC_CHARACTERS.sub("-", value.lower())
+    normalized = _REPEATED_SEPARATORS.sub("-", normalized)
+    return normalized.strip("-_.")
 
 
 class KafkaProbeError(RuntimeError):

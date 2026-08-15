@@ -3,7 +3,7 @@
 from confluent_kafka.admin import AdminClient
 import pytest
 
-from tests.helpers.container_images import KAFKA_IMAGE
+from tests.helpers.docker import KAFKA_IMAGE
 
 
 @pytest.mark.integration

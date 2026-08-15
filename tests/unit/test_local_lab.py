@@ -5,12 +5,12 @@ from pathlib import Path
 import pytest
 import yaml
 
-from order_app.messaging.kafka import TopicSpec
-from order_app.local_lab.app import _dashboard_html
-from order_app.local_lab.control import ConsumerControls
-from order_app.local_lab.infrastructure import ensure_topic
-from order_app.local_lab.settings import LocalLabSettings
-from order_app.order_consumer import PostgresOrderStore
+from order_app.messaging import TopicSpec
+from order_app.local_lab.dashboard_api import _dashboard_html
+from order_app.local_lab.consumer_control_store import ConsumerControlStore
+from order_app.local_lab.resource_setup import ensure_topic
+from order_app.local_lab.config import LocalLabConfig
+from order_app.order_processing import PostgresOrderStore
 
 
 ROOT = Path(__file__).parents[2]
@@ -31,7 +31,7 @@ def test_local_settings_have_stable_learning_resources(monkeypatch) -> None:
     for name in names:
         monkeypatch.delenv(name, raising=False)
 
-    settings = LocalLabSettings.from_environment()
+    settings = LocalLabConfig.from_environment()
 
     assert settings.kafka_topic == "orders.created.local"
     assert settings.kafka_consumer_group == "local-order-consumer"
@@ -101,7 +101,7 @@ def test_topic_initializer_is_idempotent() -> None:
 
 @pytest.mark.unit
 def test_consumer_controls_and_order_listing_reject_invalid_input() -> None:
-    controls = ConsumerControls("postgresql://unused")
+    controls = ConsumerControlStore("postgresql://unused")
     with pytest.raises(ValueError, match="Unsupported"):
         controls.is_paused("rabbitmq")
 

@@ -7,7 +7,7 @@ import order_app.messaging
 
 
 @pytest.mark.unit
-def test_application_and_testkit_packages_are_importable() -> None:
-    """The order application and its testkit are separate packages."""
+def test_application_runtime_packages_are_importable() -> None:
+    """The application and its runtime messaging package are importable."""
     assert order_app.__doc__
     assert order_app.messaging.__doc__

@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from order_app.messaging.contracts import OrderCreatedEvent
-from order_app.messaging.kafka import KafkaPublishError
+from order_app.messaging import KafkaPublishError
 from order_app.order_api import create_order_app
 
 

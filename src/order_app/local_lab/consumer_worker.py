@@ -6,10 +6,10 @@ import argparse
 import signal
 from threading import Event
 
-from order_app.local_lab.control import ConsumerControls
-from order_app.local_lab.infrastructure import build_sqs_client, get_queue_url
-from order_app.local_lab.settings import LocalLabSettings
-from order_app.order_consumer import (
+from order_app.local_lab.consumer_control_store import ConsumerControlStore
+from order_app.local_lab.resource_setup import build_sqs_client, get_queue_url
+from order_app.local_lab.config import LocalLabConfig
+from order_app.order_processing import (
     ConsumerSettings,
     KafkaDeadLetterPublisher,
     KafkaOrderConsumer,
@@ -19,10 +19,10 @@ from order_app.order_consumer import (
 )
 
 
-def run_kafka_worker(settings: LocalLabSettings, stop: Event) -> None:
+def run_kafka_worker(settings: LocalLabConfig, stop: Event) -> None:
     store = PostgresOrderStore(settings.postgres_dsn, schema=settings.kafka_schema)
     store.initialize()
-    controls = ConsumerControls(settings.postgres_dsn)
+    controls = ConsumerControlStore(settings.postgres_dsn)
     controls.initialize()
     with KafkaOrderConsumer(
         ConsumerSettings(
@@ -61,12 +61,12 @@ def run_kafka_worker(settings: LocalLabSettings, stop: Event) -> None:
                 )
 
 
-def run_sqs_worker(settings: LocalLabSettings, stop: Event) -> None:
+def run_sqs_worker(settings: LocalLabConfig, stop: Event) -> None:
     client = build_sqs_client(settings)
     queue_url = get_queue_url(client, settings.sqs_queue_name)
     store = PostgresOrderStore(settings.postgres_dsn, schema=settings.sqs_schema)
     store.initialize()
-    controls = ConsumerControls(settings.postgres_dsn)
+    controls = ConsumerControlStore(settings.postgres_dsn)
     controls.initialize()
     consumer = SqsOrderConsumer(client, queue_url, store)
     print(f"SQS worker ready: queue={settings.sqs_queue_name}", flush=True)
@@ -89,7 +89,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run a local-lab order consumer.")
     parser.add_argument("broker", choices=("kafka", "sqs"))
     args = parser.parse_args()
-    settings = LocalLabSettings.from_environment()
+    settings = LocalLabConfig.from_environment()
     stop = Event()
 
     def request_stop(*_: object) -> None:

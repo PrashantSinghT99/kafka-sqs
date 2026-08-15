@@ -1,6 +1,6 @@
-"""Sample HTTP producer boundary for the `order.created` event."""
+"""HTTP API that accepts orders and publishes `order.created` events."""
 
-from order_app.order_api.app import (
+from order_app.order_api.http_api import (
     CreateOrderRequest,
     CreateOrderResponse,
     create_configured_order_app,

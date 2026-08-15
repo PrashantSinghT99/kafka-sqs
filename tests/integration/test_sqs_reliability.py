@@ -4,10 +4,10 @@ from uuid import uuid4
 
 import pytest
 
-from tests.helpers.eventually import eventually
+from tests.helpers.client_stub import eventually
 from order_app.messaging.contracts import make_order_created_event
-from order_app.messaging.sqs import SqsEventClient
-from tests.helpers.sqs_queues import SqsQueueSet
+from order_app.messaging import SqsEventPublisher
+from tests.helpers.sqs import SqsQueueSet
 
 
 @pytest.mark.integration
@@ -18,7 +18,7 @@ def test_receive_without_delete_becomes_visible_with_higher_receive_count(
     sqs_queues: SqsQueueSet,
 ) -> None:
     event = make_order_created_event(order_id="ORD-SQS-VISIBILITY-1")
-    SqsEventClient(sqs_client).publish_order_created(sqs_queues.standard_url, event)
+    SqsEventPublisher(sqs_client).publish_order_created(sqs_queues.standard_url, event)
 
     first = _receive_one(sqs_client, sqs_queues.standard_url, wait=1)
     assert first is not None
@@ -50,7 +50,7 @@ def test_poison_message_redrives_to_owned_dlq(
     sqs_queues: SqsQueueSet,
 ) -> None:
     event = make_order_created_event(order_id="ORD-SQS-POISON-1")
-    SqsEventClient(sqs_client).publish_order_created(sqs_queues.standard_url, event)
+    SqsEventPublisher(sqs_client).publish_order_created(sqs_queues.standard_url, event)
     counts: list[int] = []
 
     for _ in range(4):
@@ -88,7 +88,7 @@ def test_fifo_preserves_order_within_group_and_deduplicates_id(
     sqs_client,
     sqs_queues: SqsQueueSet,
 ) -> None:
-    event_client = SqsEventClient(sqs_client)
+    event_client = SqsEventPublisher(sqs_client)
     events = [
         make_order_created_event(order_id=f"ORD-SQS-FIFO-{index}")
         for index in range(3)

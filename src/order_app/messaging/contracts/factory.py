@@ -1,4 +1,4 @@
-"""Factories for valid controlled test events."""
+"""Factory for valid `order.created` events."""
 
 from __future__ import annotations
 
@@ -37,4 +37,3 @@ def make_order_created_event(
             currency=currency,
         ),
     )
-

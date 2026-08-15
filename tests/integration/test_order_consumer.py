@@ -6,8 +6,8 @@ from uuid import uuid4
 import pytest
 
 from order_app.messaging.contracts import make_order_created_event
-from order_app.messaging.kafka import KafkaEventProducer, ProducerSettings, TopicMetadata
-from order_app.order_consumer import (
+from order_app.messaging import KafkaEventPublisher, KafkaPublisherConfig, TopicMetadata
+from order_app.order_processing import (
     ConsumerSettings,
     KafkaOrderConsumer,
     OrderConsumerError,
@@ -29,7 +29,7 @@ def test_sdk_event_creates_order_and_processed_identity_atomically(
         amount=499.25,
         currency="INR",
     )
-    KafkaEventProducer(ProducerSettings(kafka_bootstrap_servers)).publish_order_created(
+    KafkaEventPublisher(KafkaPublisherConfig(kafka_bootstrap_servers)).publish_order_created(
         kafka_topic.name,
         event,
     )
@@ -73,7 +73,7 @@ def test_database_rollback_leaves_offset_uncommitted_for_restart(
     order_store: PostgresOrderStore,
 ) -> None:
     event = make_order_created_event(order_id="ORD-ROLLBACK-1")
-    KafkaEventProducer(ProducerSettings(kafka_bootstrap_servers)).publish_order_created(
+    KafkaEventPublisher(KafkaPublisherConfig(kafka_bootstrap_servers)).publish_order_created(
         kafka_topic.name,
         event,
     )

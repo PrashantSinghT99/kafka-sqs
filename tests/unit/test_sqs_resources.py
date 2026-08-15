@@ -2,7 +2,7 @@
 
 import pytest
 
-from tests.helpers.sqs_queues import unique_queue_name
+from tests.helpers.sqs import unique_queue_name
 
 
 @pytest.mark.unit

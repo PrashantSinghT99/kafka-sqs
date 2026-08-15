@@ -6,20 +6,20 @@ from confluent_kafka import Producer
 import pytest
 
 from order_app.messaging.contracts import OrderCreatedEvent, make_order_created_event
-from order_app.messaging.kafka import (
-    KafkaEventProducer,
-    ProducerSettings,
+from order_app.messaging import (
+    KafkaEventPublisher,
+    KafkaPublisherConfig,
     TopicMetadata,
     order_created_headers,
     serialize_order_created_event,
 )
-from tests.helpers.kafka_event_probe import (
+from tests.helpers.kafka import (
     KafkaEventProbe,
     KafkaProbeTimeout,
     ProbeSettings,
     match_order_created_event,
 )
-from order_app.order_consumer import (
+from order_app.order_processing import (
     ConsumerSettings,
     KafkaOrderConsumer,
     PostgresOrderStore,
@@ -40,7 +40,7 @@ def test_same_key_records_share_partition_and_increase_offset_in_order(
         )
         for _ in range(4)
     ]
-    producer = KafkaEventProducer(ProducerSettings(kafka_bootstrap_servers))
+    producer = KafkaEventPublisher(KafkaPublisherConfig(kafka_bootstrap_servers))
 
     with KafkaEventProbe(
         ProbeSettings(kafka_bootstrap_servers),
@@ -77,7 +77,7 @@ def test_different_keys_are_asserted_only_within_their_partitions(
     kafka_bootstrap_servers: str,
     kafka_topic: TopicMetadata,
 ) -> None:
-    producer = KafkaEventProducer(ProducerSettings(kafka_bootstrap_servers))
+    producer = KafkaEventPublisher(KafkaPublisherConfig(kafka_bootstrap_servers))
     published = [
         producer.publish_order_created(
             kafka_topic.name,
@@ -104,7 +104,7 @@ def test_restart_with_same_group_resumes_after_committed_record(
     kafka_topic: TopicMetadata,
     order_store: PostgresOrderStore,
 ) -> None:
-    producer = KafkaEventProducer(ProducerSettings(kafka_bootstrap_servers))
+    producer = KafkaEventPublisher(KafkaPublisherConfig(kafka_bootstrap_servers))
     first_event = make_order_created_event(order_id="ORD-RESTART-1")
     second_event = make_order_created_event(order_id="ORD-RESTART-2")
     group_id = f"restart-consumer-{uuid4()}"

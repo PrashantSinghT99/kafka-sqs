@@ -5,9 +5,9 @@ from uuid import uuid4
 import pytest
 
 from order_app.messaging.contracts import make_order_created_event
-from tests.helpers.http import RecordingHttpStub
-from order_app.messaging.kafka import KafkaEventProducer, ProducerSettings, TopicMetadata
-from order_app.order_consumer import (
+from tests.helpers.client_stub import RecordingHttpStub
+from order_app.messaging import KafkaEventPublisher, KafkaPublisherConfig, TopicMetadata
+from order_app.order_processing import (
     ConsumerSettings,
     KafkaOrderConsumer,
     OrderConsumerError,
@@ -25,7 +25,7 @@ def test_same_event_delivered_twice_creates_one_business_and_http_effect(
     order_store: PostgresOrderStore,
 ) -> None:
     event = make_order_created_event(order_id="ORD-IDEMPOTENT-1")
-    producer = KafkaEventProducer(ProducerSettings(kafka_bootstrap_servers))
+    producer = KafkaEventPublisher(KafkaPublisherConfig(kafka_bootstrap_servers))
     producer.publish_order_created(kafka_topic.name, event)
     producer.publish_order_created(kafka_topic.name, event)
     group_id = f"idempotent-consumer-{uuid4()}"
@@ -67,7 +67,7 @@ def test_different_events_with_same_correlation_id_are_both_processed(
         order_id="ORD-CORRELATION-2",
         correlation_id=correlation_id,
     )
-    producer = KafkaEventProducer(ProducerSettings(kafka_bootstrap_servers))
+    producer = KafkaEventPublisher(KafkaPublisherConfig(kafka_bootstrap_servers))
     producer.publish_order_created(kafka_topic.name, first_event)
     producer.publish_order_created(kafka_topic.name, second_event)
     group_id = f"correlation-consumer-{uuid4()}"
@@ -106,7 +106,7 @@ def test_pending_redelivery_retries_unfinished_downstream_effect(
     order_store: PostgresOrderStore,
 ) -> None:
     event = make_order_created_event(order_id="ORD-PENDING-RETRY-1")
-    producer = KafkaEventProducer(ProducerSettings(kafka_bootstrap_servers))
+    producer = KafkaEventPublisher(KafkaPublisherConfig(kafka_bootstrap_servers))
     producer.publish_order_created(kafka_topic.name, event)
     group_id = f"pending-consumer-{uuid4()}"
     settings = ConsumerSettings(kafka_bootstrap_servers, group_id)

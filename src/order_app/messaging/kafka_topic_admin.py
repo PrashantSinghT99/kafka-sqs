@@ -1,4 +1,4 @@
-"""Small Kafka AdminClient wrapper for deterministic test topic lifecycles."""
+"""Kafka topic creation, inspection, and deletion adapter."""
 
 from __future__ import annotations
 
@@ -9,16 +9,16 @@ from typing import Mapping
 from confluent_kafka.admin import AdminClient, NewTopic
 
 
-DEFAULT_TEST_TOPIC_PARTITIONS = 3
-DEFAULT_TEST_TOPIC_REPLICATION_FACTOR = 1
-DEFAULT_TEST_TOPIC_CONFIG: Mapping[str, str] = {
+DEFAULT_TOPIC_PARTITIONS = 3
+DEFAULT_TOPIC_REPLICATION_FACTOR = 1
+DEFAULT_TOPIC_CONFIG: Mapping[str, str] = {
     "cleanup.policy": "delete",
     "retention.ms": "600000",
 }
 
 
 class KafkaAdminError(RuntimeError):
-    """Raised when Kafka test-resource administration fails."""
+    """Raised when Kafka topic administration fails."""
 
 
 @dataclass(frozen=True)
@@ -26,10 +26,10 @@ class TopicSpec:
     """Desired Kafka topic configuration."""
 
     name: str
-    partition_count: int = DEFAULT_TEST_TOPIC_PARTITIONS
-    replication_factor: int = DEFAULT_TEST_TOPIC_REPLICATION_FACTOR
+    partition_count: int = DEFAULT_TOPIC_PARTITIONS
+    replication_factor: int = DEFAULT_TOPIC_REPLICATION_FACTOR
     config: Mapping[str, str] = field(
-        default_factory=lambda: dict(DEFAULT_TEST_TOPIC_CONFIG)
+        default_factory=lambda: dict(DEFAULT_TOPIC_CONFIG)
     )
 
 
@@ -47,8 +47,8 @@ class TopicMetadata:
         return len(self.partition_ids)
 
 
-class KafkaTestAdmin:
-    """Create, inspect, and delete isolated topics with bounded waits."""
+class KafkaTopicAdmin:
+    """Create, inspect, and delete topics with bounded waits."""
 
     def __init__(
         self,

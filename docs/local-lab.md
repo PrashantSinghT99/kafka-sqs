@@ -1,6 +1,6 @@
 # Visual Local Kafka and SQS Lab
 
-This mode keeps the sample system running so you can watch an event move from an API, through Kafka or SQS, into a consumer, and finally into PostgreSQL.
+This mode keeps the order application running so you can watch an event move from an API, through Kafka or SQS, into a consumer, and finally into PostgreSQL.
 
 It is separate from automated testing. The local lab keeps stable resources and data for exploration; the test suite continues to use disposable Testcontainers resources.
 

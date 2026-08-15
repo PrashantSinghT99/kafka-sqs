@@ -3,12 +3,12 @@
 import pytest
 
 from order_app.messaging.contracts import make_order_created_event
-from order_app.messaging.kafka import (
-    KafkaEventProducer,
-    ProducerSettings,
+from order_app.messaging import (
+    KafkaEventPublisher,
+    KafkaPublisherConfig,
     TopicMetadata,
 )
-from tests.helpers.kafka_event_probe import (
+from tests.helpers.kafka import (
     KafkaEventProbe,
     KafkaProbeTimeout,
     ProbeSettings,
@@ -25,7 +25,7 @@ def test_probe_started_before_trigger_finds_only_the_correlated_event(
 ) -> None:
     unrelated = make_order_created_event(correlation_id="checkout-unrelated")
     expected = make_order_created_event(correlation_id="checkout-probe-target")
-    producer = KafkaEventProducer(ProducerSettings(kafka_bootstrap_servers))
+    producer = KafkaEventPublisher(KafkaPublisherConfig(kafka_bootstrap_servers))
     settings = ProbeSettings(kafka_bootstrap_servers)
 
     with KafkaEventProbe(settings, kafka_topic.name) as probe:
@@ -58,7 +58,7 @@ def test_probe_missing_event_fails_at_bounded_deadline_with_evidence(
     kafka_bootstrap_servers: str,
     kafka_topic: TopicMetadata,
 ) -> None:
-    producer = KafkaEventProducer(ProducerSettings(kafka_bootstrap_servers))
+    producer = KafkaEventPublisher(KafkaPublisherConfig(kafka_bootstrap_servers))
     unrelated = make_order_created_event(correlation_id="checkout-observed")
     settings = ProbeSettings(kafka_bootstrap_servers)
 

@@ -4,11 +4,11 @@ from uuid import uuid4
 
 import pytest
 
-from tests.helpers.eventually import eventually
+from tests.helpers.client_stub import eventually
 from order_app.messaging.contracts import make_order_created_event
-from tests.helpers.http import RecordingHttpStub
-from order_app.messaging.kafka import KafkaEventProducer, ProducerSettings, TopicMetadata
-from order_app.order_consumer import (
+from tests.helpers.client_stub import RecordingHttpStub
+from order_app.messaging import KafkaEventPublisher, KafkaPublisherConfig, TopicMetadata
+from order_app.order_processing import (
     ConsumerSettings,
     KafkaOrderConsumer,
     OrderNotificationClient,
@@ -35,8 +35,8 @@ def test_consumer_sends_expected_downstream_http_request(
     with RecordingHttpStub() as stub:
         stub.enqueue_response(202, json_body={"accepted": True})
         downstream = OrderNotificationClient(stub.base_url)
-        KafkaEventProducer(
-            ProducerSettings(kafka_bootstrap_servers)
+        KafkaEventPublisher(
+            KafkaPublisherConfig(kafka_bootstrap_servers)
         ).publish_order_created(kafka_topic.name, event)
 
         with KafkaOrderConsumer(
@@ -94,8 +94,8 @@ def test_temporary_downstream_failure_retries_then_commits(
         stub.enqueue_response(503, json_body={"error": "temporary"})
         stub.enqueue_response(202, json_body={"accepted": True})
         downstream = OrderNotificationClient(stub.base_url, max_attempts=2)
-        KafkaEventProducer(
-            ProducerSettings(kafka_bootstrap_servers)
+        KafkaEventPublisher(
+            KafkaPublisherConfig(kafka_bootstrap_servers)
         ).publish_order_created(kafka_topic.name, event)
 
         with KafkaOrderConsumer(

@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from tests.helpers.sqs_queues import SqsQueueSet
+from tests.helpers.sqs import SqsQueueSet
 
 
 @pytest.mark.integration

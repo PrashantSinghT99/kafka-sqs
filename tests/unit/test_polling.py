@@ -2,7 +2,7 @@
 
 import pytest
 
-from tests.helpers.eventually import EventuallyTimeout, eventually
+from tests.helpers.client_stub import EventuallyTimeout, eventually
 
 
 @pytest.mark.unit

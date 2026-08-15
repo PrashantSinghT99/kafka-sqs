@@ -2,8 +2,8 @@
 
 import pytest
 
-from order_app.messaging.kafka import KafkaTestAdmin, TopicMetadata, TopicSpec
-from tests.helpers.kafka_topic_names import unique_topic_name
+from order_app.messaging import KafkaTopicAdmin, TopicMetadata, TopicSpec
+from tests.helpers.kafka import unique_topic_name
 
 
 @pytest.mark.integration
@@ -22,7 +22,7 @@ def test_isolated_topic_exposes_expected_metadata(
 @pytest.mark.integration
 @pytest.mark.kafka
 def test_admin_topic_lifecycle_removes_deleted_topic(
-    kafka_admin: KafkaTestAdmin,
+    kafka_admin: KafkaTopicAdmin,
     request: pytest.FixtureRequest,
 ) -> None:
     topic_name = unique_topic_name(request.node.nodeid)

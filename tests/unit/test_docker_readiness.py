@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.helpers.infrastructure import docker as docker_readiness
+import tests.helpers.docker as docker_readiness
 
 
 class _ReadyDockerClient:
@@ -44,4 +44,3 @@ def test_require_docker_explains_how_to_recover(
         match="Start Docker Desktop",
     ):
         docker_readiness.require_docker()
-

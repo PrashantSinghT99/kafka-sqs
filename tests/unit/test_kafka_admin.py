@@ -7,9 +7,9 @@ from typing import Any, cast
 from confluent_kafka.admin import AdminClient
 import pytest
 
-from order_app.messaging.kafka.admin import (
+from order_app.messaging.kafka_topic_admin import (
     KafkaAdminError,
-    KafkaTestAdmin,
+    KafkaTopicAdmin,
     TopicMetadata,
     TopicSpec,
 )
@@ -29,7 +29,7 @@ class _CreateOnlyAdminClient:
 def test_create_topic_waits_for_metadata_propagation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    admin = KafkaTestAdmin(
+    admin = KafkaTopicAdmin(
         "unused:9092",
         timeout_seconds=1.0,
         admin_client=cast(AdminClient, _CreateOnlyAdminClient()),

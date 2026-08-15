@@ -8,10 +8,12 @@ from typing import Any
 import pytest
 
 from order_app.messaging.contracts import make_order_created_event
-from order_app.messaging.kafka import (
-    KafkaEventProducer,
+from order_app.messaging import (
+    EventPublisher,
+    KafkaEventPublisher,
     KafkaPublishError,
-    ProducerSettings,
+    KafkaPublisherConfig,
+    SqsEventPublisher,
 )
 
 
@@ -46,8 +48,14 @@ class _FakeProducer:
 
 
 @pytest.mark.unit
+def test_kafka_and_sqs_publishers_share_the_event_publisher_base() -> None:
+    assert issubclass(KafkaEventPublisher, EventPublisher)
+    assert issubclass(SqsEventPublisher, EventPublisher)
+
+
+@pytest.mark.unit
 def test_producer_settings_enable_strong_delivery_defaults() -> None:
-    config = ProducerSettings("kafka:9092").as_confluent_config()
+    config = KafkaPublisherConfig("kafka:9092").as_confluent_config()
 
     assert config["enable.idempotence"] is True
     assert config["acks"] == "all"
@@ -64,8 +72,8 @@ def test_publish_uses_order_key_contract_headers_and_json() -> None:
         correlation_id="checkout-123",
         causation_id="request-123",
     )
-    producer = KafkaEventProducer(
-        ProducerSettings("unused:9092"),
+    producer = KafkaEventPublisher(
+        KafkaPublisherConfig("unused:9092"),
         producer=fake,
     )
 
@@ -83,8 +91,8 @@ def test_publish_uses_order_key_contract_headers_and_json() -> None:
 
 @pytest.mark.unit
 def test_delivery_callback_error_becomes_test_friendly_exception() -> None:
-    producer = KafkaEventProducer(
-        ProducerSettings("unused:9092"),
+    producer = KafkaEventPublisher(
+        KafkaPublisherConfig("unused:9092"),
         producer=_FakeProducer(error="broker rejected record"),
     )
 
@@ -94,8 +102,8 @@ def test_delivery_callback_error_becomes_test_friendly_exception() -> None:
 
 @pytest.mark.unit
 def test_flush_timeout_reports_undelivered_count() -> None:
-    producer = KafkaEventProducer(
-        ProducerSettings("unused:9092"),
+    producer = KafkaEventPublisher(
+        KafkaPublisherConfig("unused:9092"),
         producer=_FakeProducer(remaining=1),
     )
 
@@ -105,7 +113,7 @@ def test_flush_timeout_reports_undelivered_count() -> None:
 
 @pytest.mark.unit
 def test_delivery_timeout_must_exceed_request_timeout() -> None:
-    settings = ProducerSettings(
+    settings = KafkaPublisherConfig(
         "unused:9092",
         delivery_timeout_seconds=5,
         request_timeout_seconds=5,
@@ -113,4 +121,3 @@ def test_delivery_timeout_must_exceed_request_timeout() -> None:
 
     with pytest.raises(ValueError, match="greater than"):
         settings.as_confluent_config()
-

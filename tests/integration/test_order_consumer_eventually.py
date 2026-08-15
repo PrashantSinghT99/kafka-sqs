@@ -6,10 +6,10 @@ from uuid import uuid4
 
 import pytest
 
-from tests.helpers.eventually import eventually
+from tests.helpers.client_stub import eventually
 from order_app.messaging.contracts import make_order_created_event
-from order_app.messaging.kafka import KafkaEventProducer, ProducerSettings, TopicMetadata
-from order_app.order_consumer import (
+from order_app.messaging import KafkaEventPublisher, KafkaPublisherConfig, TopicMetadata
+from order_app.order_processing import (
     ConsumerSettings,
     KafkaOrderConsumer,
     PostgresOrderStore,
@@ -39,8 +39,8 @@ def test_controlled_event_eventually_creates_complete_business_state(
     ) as consumer:
         with ThreadPoolExecutor(max_workers=1) as executor:
             processing = executor.submit(consumer.process_one, timeout_seconds=10)
-            KafkaEventProducer(
-                ProducerSettings(kafka_bootstrap_servers)
+            KafkaEventPublisher(
+                KafkaPublisherConfig(kafka_bootstrap_servers)
             ).publish_order_created(kafka_topic.name, event)
 
             order = eventually(

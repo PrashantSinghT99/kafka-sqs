@@ -7,8 +7,8 @@ from typing import Any
 import pytest
 
 from order_app.messaging.contracts import make_order_created_event
-from order_app.messaging.kafka import serialize_order_created_event
-from order_app.order_consumer import (
+from order_app.messaging import serialize_order_created_event
+from order_app.order_processing import (
     ConsumerSettings,
     EventStoreResult,
     KafkaOrderConsumer,

@@ -242,22 +242,17 @@ kafka-sqs/
 |-- src/
 |   `-- order_app/
 |       |-- messaging/
-|       |   |-- contracts/
-|       |   |-- kafka/
-|       |   `-- sqs/
-|       |-- order_api/
-|       |-- order_consumer/
-|       `-- local_lab/
+|       |   |-- contracts/               # Event schema and typed models
+|       |   |-- event_publishers.py      # Base + Kafka/SQS publishers
+|       |   `-- kafka_topic_admin.py     # Topic lifecycle adapter
+|       |-- order_api/          # HTTP-to-event producer boundary
+|       |-- order_processing/   # Kafka/SQS consumers and their effects
+|       `-- local_lab/          # Persistent visual dashboard/runtime
 |-- tests/
-|   |-- helpers/
-|   |   |-- http/
-|   |   `-- infrastructure/
+|   |-- helpers/                # kafka.py, sqs.py, client_stub.py, docker.py
 |   |-- unit/
 |   |-- contracts/
 |   `-- integration/
-|       |-- producer/
-|       |-- consumer/
-|       `-- reliability/
 |-- .github/workflows/
 |-- pyproject.toml
 `-- README.md

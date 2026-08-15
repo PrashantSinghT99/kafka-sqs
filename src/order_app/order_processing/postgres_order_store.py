@@ -1,4 +1,4 @@
-"""Transactional PostgreSQL persistence for the sample order consumer."""
+"""Transactional PostgreSQL persistence for processed orders."""
 
 from __future__ import annotations
 

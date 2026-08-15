@@ -3,7 +3,7 @@
 import pytest
 
 from order_app.messaging.contracts import make_order_created_event
-from order_app.messaging.kafka import KafkaEventProducer, ProducerSettings, TopicMetadata
+from order_app.messaging import KafkaEventPublisher, KafkaPublisherConfig, TopicMetadata
 
 
 @pytest.mark.integration
@@ -14,7 +14,7 @@ def test_order_event_is_acknowledged_by_disposable_kafka(
     request: pytest.FixtureRequest,
 ) -> None:
     event = make_order_created_event(order_id="ORD-501")
-    producer = KafkaEventProducer(ProducerSettings(kafka_bootstrap_servers))
+    producer = KafkaEventPublisher(KafkaPublisherConfig(kafka_bootstrap_servers))
 
     published = producer.publish_order_created(kafka_topic.name, event)
 

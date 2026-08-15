@@ -6,12 +6,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from order_app.messaging.contracts import validate_order_created_contract
-from order_app.messaging.kafka import (
-    KafkaEventProducer,
-    ProducerSettings,
+from order_app.messaging import (
+    KafkaEventPublisher,
+    KafkaPublisherConfig,
     TopicMetadata,
 )
-from tests.helpers.kafka_event_probe import (
+from tests.helpers.kafka import (
     KafkaEventProbe,
     KafkaProbeTimeout,
     ProbeSettings,
@@ -28,7 +28,7 @@ def test_post_order_publishes_expected_contract_valid_kafka_record(
     request: pytest.FixtureRequest,
 ) -> None:
     correlation_id = f"component-{uuid4()}"
-    publisher = KafkaEventProducer(ProducerSettings(kafka_bootstrap_servers))
+    publisher = KafkaEventPublisher(KafkaPublisherConfig(kafka_bootstrap_servers))
     app = create_order_app(
         publisher,
         kafka_topic.name,
@@ -101,7 +101,7 @@ def test_invalid_post_order_produces_no_matching_kafka_event(
     kafka_topic: TopicMetadata,
 ) -> None:
     correlation_id = f"invalid-component-{uuid4()}"
-    publisher = KafkaEventProducer(ProducerSettings(kafka_bootstrap_servers))
+    publisher = KafkaEventPublisher(KafkaPublisherConfig(kafka_bootstrap_servers))
     app = create_order_app(publisher, kafka_topic.name)
     probe_settings = ProbeSettings(kafka_bootstrap_servers)
 
