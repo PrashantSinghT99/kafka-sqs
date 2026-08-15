@@ -12,7 +12,13 @@ class DownstreamNotificationError(RuntimeError):
 
 
 class OrderNotificationClient:
-    """Send one correlation-aware order-created HTTP notification."""
+    """Send correlation-aware order notifications over HTTP.
+
+    Args:
+        base_url: Downstream service root URL.
+        timeout_seconds: Timeout for each HTTP attempt.
+        max_attempts: Maximum number of immediate delivery attempts.
+    """
 
     def __init__(
         self,
@@ -30,6 +36,17 @@ class OrderNotificationClient:
         self.max_attempts = max_attempts
 
     def notify(self, event: OrderCreatedEvent) -> None:
+        """POST one ``order.created`` notification downstream.
+
+        Args:
+            event: Typed event used for the body and tracing headers.
+
+        Returns:
+            None after a successful 2xx response.
+
+        Raises:
+            DownstreamNotificationError: If every HTTP attempt fails.
+        """
         last_error: httpx2.HTTPError | None = None
         for _ in range(self.max_attempts):
             try:

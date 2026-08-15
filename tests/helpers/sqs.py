@@ -17,7 +17,15 @@ _UNSAFE = re.compile(r"[^a-z0-9_-]+")
 
 
 def unique_queue_name(seed: str, *, fifo: bool = False) -> str:
-    """Build an AWS-safe readable name below the 80-character limit."""
+    """Build a unique, readable SQS queue name within AWS limits.
+
+    Args:
+        seed: Usually the pytest node ID that identifies the owning test.
+        fifo: Append the required ``.fifo`` suffix when ``True``.
+
+    Returns:
+        An AWS-safe queue name no longer than 80 characters.
+    """
     readable = _UNSAFE.sub("-", seed.lower()).strip("-_") or "queue"
     suffix = uuid4().hex[:10]
     digest = hashlib.sha1(seed.encode("utf-8")).hexdigest()[:8]
@@ -42,7 +50,15 @@ class SqsQueueSet:
 
 
 def create_sqs_queue_set(client: Any, seed: str) -> SqsQueueSet:
-    """Provision one isolated standard/FIFO/DLQ queue family."""
+    """Provision an isolated standard, FIFO, and dead-letter queue family.
+
+    Args:
+        client: Boto3-compatible SQS client.
+        seed: Test identity used to create unique names.
+
+    Returns:
+        Queue URLs and their observable SQS attributes.
+    """
     dlq_url = _create_sqs_queue(
         client,
         unique_queue_name(f"{seed}-dlq"),
@@ -84,12 +100,29 @@ def create_sqs_queue_set(client: Any, seed: str) -> SqsQueueSet:
 
 
 def delete_sqs_queue_set(client: Any, queues: SqsQueueSet) -> None:
-    """Delete every queue owned by an isolated test queue family."""
+    """Delete every queue in an isolated test queue family.
+
+    Args:
+        client: Boto3-compatible SQS client.
+        queues: Queue URLs previously returned by ``create_sqs_queue_set``.
+
+    Returns:
+        None after all three delete requests are accepted.
+    """
     for queue_url in (queues.standard_url, queues.fifo_url, queues.dlq_url):
         client.delete_queue(QueueUrl=queue_url)
 
 
 def get_sqs_queue_attributes(client: Any, queue_url: str) -> dict[str, str]:
+    """Read all observable attributes for one SQS queue.
+
+    Args:
+        client: Boto3-compatible SQS client.
+        queue_url: Existing queue URL.
+
+    Returns:
+        Mapping of SQS attribute names to string values.
+    """
     return client.get_queue_attributes(
         QueueUrl=queue_url,
         AttributeNames=["All"],
@@ -106,6 +139,7 @@ def _create_sqs_queue(
 
 @dataclass(frozen=True)
 class ReceivedSqsEvent:
+    """Hold a parsed SQS event and the broker evidence used by assertions."""
     message_id: str
     receipt_handle: str
     event: OrderCreatedEvent
@@ -125,7 +159,21 @@ def wait_for_sqs_event(
     timeout_seconds: float = 10.0,
     delete_observed: bool = True,
 ) -> ReceivedSqsEvent:
-    """Find one correlated event without wrapping the boto3 client in a class."""
+    """Poll a test-owned queue until a correlated order event appears.
+
+    Args:
+        client: Boto3-compatible SQS client.
+        queue_url: Test-owned queue URL.
+        correlation_id: Business journey identity to match.
+        timeout_seconds: Overall wait limit.
+        delete_observed: Delete received messages after inspecting them.
+
+    Returns:
+        The matching typed event plus SQS receipt and attribute evidence.
+
+    Raises:
+        SqsProbeTimeout: If no matching event arrives before the deadline.
+    """
     deadline = monotonic() + timeout_seconds
     observed: list[str] = []
     while monotonic() < deadline:

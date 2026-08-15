@@ -7,10 +7,10 @@ This is the living implementation record for the project. Update it whenever a s
 | Item | Current value |
 |---|---|
 | Active phase | Phase 8 — Structure and naming cleanup |
-| Current point | Step 21D — Remove redundant broker-specific exceptions |
+| Current point | Step 21E — Learner-friendly public API docstrings |
 | Step status | Completed and verified |
-| Last completed step | Step 21D — Single publish-error boundary |
-| Next gate | Continue the file/class necessity audit using the same caller-behavior rule |
+| Last completed step | Step 21E — Learner-friendly public API docstrings |
+| Next gate | Use the docstrings and code map during the runtime-to-test walkthrough |
 
 ## Repository state
 
@@ -54,6 +54,7 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-15 | Step 21B — Responsibility-based file and folder names | Completed | Imports/Compose entry points passed; 81 tests passed; rebuilt visual lab healthy with data preserved |
 | 2026-08-15 | Step 21C — Helper and publisher consolidation | Completed | 54 fast tests and 82 total tests passed; rebuilt visual lab healthy with 8 existing orders preserved |
 | 2026-08-15 | Step 21D — Publish exception simplification | Completed | Redundant Kafka/SQS subclasses removed; 54 fast and 82 total tests passed |
+| 2026-08-15 | Step 21E — Public API docstrings | Completed | Static documentation guards passed; 56 fast and 84 total tests passed |
 
 ## Decision record
 
@@ -476,6 +477,13 @@ This is the living implementation record for the project. Update it whenever a s
 - Decision: Keep `EventPublishError` and remove the `KafkaPublishError` and `SqsPublishError` subclasses.
 - Reason: The HTTP API handles both failures identically by returning a safe `503`, and no runtime caller performs Kafka-specific or SQS-specific recovery based on exception type. Broker context is already present in each error message.
 - Consequence: Kafka, SQS, and Kafka DLQ publishers raise the same application-boundary exception. Broker-specific subclasses should be reintroduced only if a caller genuinely needs different recovery behavior.
+
+### D-061 — Public docstrings must explain behavior, accepted inputs, and returns
+
+- Status: Accepted
+- Decision: Every public class in `src/order_app` and `tests/helpers` must explain its responsibility. Every public function and method must document what it does, accepted parameters, and its return value; important failures and side effects are included when relevant.
+- Reason: One-line implementation-oriented descriptions did not give a learner enough information to call an API or understand why it exists.
+- Consequence: `tests/unit/test_docstrings.py` statically checks the public surface. Command/environment entry points may use `Accepts:` while normal Python callables use `Args:` and `Returns:`.
 
 ## Verification log
 
@@ -982,6 +990,26 @@ This is the living implementation record for the project. Update it whenever a s
   - No unused broker-specific publish exception remains: Passed
   - Kafka, SQS, and DLQ failures use one application-boundary exception: Passed
   - API failure mapping remains safe and broker-independent: Passed
+  - Complete regression remains green: Passed
+
+### Step 21E — Make public API docstrings learner-friendly
+
+- Date: 2026-08-15
+- Decision: D-061
+- Scope: All public classes, functions, and methods under `src/order_app` and `tests/helpers`
+- Format: Plain summary plus `Args:` or `Accepts:`, `Returns:`, and important `Raises:`/side-effect details
+- Guard file: `tests/unit/test_docstrings.py`
+- Guard command: `.\.venv\Scripts\python.exe -m pytest tests\unit\test_docstrings.py -q`
+- Guard result: Passed — 2 documentation-policy tests
+- Fast command: `.\.venv\Scripts\python.exe -m pytest -m "unit or contract" -q`
+- Fast result: Passed — 56 selected tests passed, 28 deselected in 4.47 seconds
+- Full command: `.\.venv\Scripts\python.exe -m pytest -q`
+- Full result: Passed — 84 tests passed, 1 dependency deprecation warning, in 57.82 seconds
+- Acceptance criteria:
+  - Every public class explains its responsibility: Passed
+  - Every public function/method explains accepted inputs and returns: Passed
+  - Important exceptions and external side effects are documented: Passed
+  - Future omissions fail a fast unit-test guard: Passed
   - Complete regression remains green: Passed
 
 ## Open decisions

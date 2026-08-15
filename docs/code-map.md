@@ -105,3 +105,24 @@ The former `SqsQueueProbe` and `SqsTestResources` wrappers did not own meaningfu
 - Runtime code must never import `tests/helpers`.
 - A new file should have one named responsibility and at least one explicit caller, resource loader, or executable entry point.
 - A new class must justify itself through state, lifecycle, validated data, polymorphism, or a distinct exception type; otherwise prefer a function.
+
+## Docstring rule
+
+Public application and test-helper APIs use this learner-friendly structure:
+
+```python
+def example(parameter: str) -> bool:
+    """Explain what the operation does.
+
+    Args:
+        parameter: Explain what the caller supplies.
+
+    Returns:
+        Explain the value returned to the caller.
+
+    Raises:
+        ValueError: Explain important failure conditions when applicable.
+    """
+```
+
+Executable functions that read command-line arguments or environment variables may use `Accepts:` instead of `Args:`. Public classes explain their responsibility and constructor inputs. Obvious private implementation helpers are not required to repeat information already clear from their names and types.

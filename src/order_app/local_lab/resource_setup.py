@@ -20,6 +20,14 @@ LOCAL_TOPIC_CONFIG = {
 
 
 def build_sqs_client(settings: LocalLabConfig) -> Any:
+    """Create a boto3 SQS client for the configured local endpoint.
+
+    Args:
+        settings: Configuration containing the SQS endpoint and region.
+
+    Returns:
+        A boto3 SQS client configured for LocalStack.
+    """
     return boto3.client(
         "sqs",
         endpoint_url=settings.sqs_endpoint_url,
@@ -30,6 +38,15 @@ def build_sqs_client(settings: LocalLabConfig) -> Any:
 
 
 def ensure_topic(admin: KafkaTopicAdmin, name: str) -> None:
+    """Create a three-partition local Kafka topic only when it is absent.
+
+    Args:
+        admin: Kafka topic-administration adapter.
+        name: Topic name to inspect and possibly create.
+
+    Returns:
+        None. Existing topics are left unchanged.
+    """
     if name not in admin.list_topic_names():
         admin.create_topic(
             TopicSpec(
@@ -42,6 +59,15 @@ def ensure_topic(admin: KafkaTopicAdmin, name: str) -> None:
 
 
 def ensure_sqs_queues(client: Any, settings: LocalLabConfig) -> tuple[str, str]:
+    """Create or retrieve the local order queue and its dead-letter queue.
+
+    Args:
+        client: Boto3-compatible SQS client.
+        settings: Configuration containing both queue names.
+
+    Returns:
+        A ``(queue_url, dead_letter_queue_url)`` tuple.
+    """
     dlq_url = client.create_queue(
         QueueName=settings.sqs_dlq_name,
         Attributes={
@@ -70,10 +96,27 @@ def ensure_sqs_queues(client: Any, settings: LocalLabConfig) -> tuple[str, str]:
 
 
 def get_queue_url(client: Any, queue_name: str) -> str:
+    """Resolve an SQS queue name to its URL.
+
+    Args:
+        client: Boto3-compatible SQS client.
+        queue_name: Existing queue name.
+
+    Returns:
+        The queue URL returned by SQS.
+    """
     return client.get_queue_url(QueueName=queue_name)["QueueUrl"]
 
 
 def initialize_lab(settings: LocalLabConfig) -> None:
+    """Provision all persistent Kafka, SQS, and PostgreSQL lab resources.
+
+    Args:
+        settings: Complete local-lab configuration.
+
+    Returns:
+        None. Resources are created idempotently in their external services.
+    """
     admin = KafkaTopicAdmin(settings.kafka_bootstrap_servers, timeout_seconds=20)
     ensure_topic(admin, settings.kafka_topic)
     ensure_topic(admin, settings.kafka_dlq_topic)

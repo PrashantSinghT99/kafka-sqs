@@ -8,6 +8,11 @@ import os
 
 @dataclass(frozen=True)
 class LocalLabConfig:
+    """Hold all connection addresses and resource names used by the local lab.
+
+    Values default to the Docker Compose environment and can be overridden by
+    environment variables through :meth:`from_environment`.
+    """
     kafka_bootstrap_servers: str = "kafka:9092"
     kafka_topic: str = "orders.created.local"
     kafka_dlq_topic: str = "orders.created.local.dlq"
@@ -24,6 +29,15 @@ class LocalLabConfig:
 
     @classmethod
     def from_environment(cls) -> LocalLabConfig:
+        """Build local-lab configuration from environment variables.
+
+        Returns:
+            A complete configuration using environment values when supplied
+            and Docker Compose defaults otherwise.
+
+        Raises:
+            RuntimeError: If a configured environment value is blank.
+        """
         defaults = cls()
         return cls(
             kafka_bootstrap_servers=_value(

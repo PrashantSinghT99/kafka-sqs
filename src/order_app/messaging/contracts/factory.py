@@ -23,7 +23,24 @@ def make_order_created_event(
     causation_id: str | None = None,
     occurred_at: datetime | None = None,
 ) -> OrderCreatedEvent:
-    """Create one valid event while allowing deterministic test overrides."""
+    """Create a valid ``order.created`` event.
+
+    Args:
+        order_id: Business order identifier used as the Kafka key.
+        customer_id: Customer that owns the order.
+        amount: Positive monetary amount.
+        currency: Three-letter uppercase currency code.
+        event_id: Optional fixed event identity; generated when omitted.
+        correlation_id: Optional workflow identity; generated when omitted.
+        causation_id: Optional triggering-action identity; generated when omitted.
+        occurred_at: Optional timezone-aware timestamp; current UTC when omitted.
+
+    Returns:
+        A validated, typed version-1 ``OrderCreatedEvent``.
+
+    Raises:
+        ValueError: If ``occurred_at`` has no timezone.
+    """
     timestamp = ensure_utc_datetime(occurred_at or datetime.now(timezone.utc))
     return OrderCreatedEvent(
         event_id=event_id or uuid4(),

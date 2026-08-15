@@ -51,7 +51,21 @@ def create_order_app(
     correlation_id_factory: IdentifierFactory | None = None,
     causation_id_factory: IdentifierFactory | None = None,
 ) -> FastAPI:
-    """Create an API whose Kafka boundary can be replaced in unit tests."""
+    """Build the order HTTP API around a supplied event publisher.
+
+    Args:
+        publisher: Kafka, SQS, or test publisher implementing ``EventPublisher``.
+        topic: Kafka topic name or SQS queue URL used as the destination.
+        order_id_factory: Optional order-ID generator for deterministic tests.
+        correlation_id_factory: Optional correlation-ID generator.
+        causation_id_factory: Optional causation-ID generator.
+
+    Returns:
+        A FastAPI application exposing ``POST /orders``.
+
+    Raises:
+        ValueError: If ``topic`` is blank.
+    """
     if not topic.strip():
         raise ValueError("Order event topic must not be blank.")
 
@@ -103,7 +117,18 @@ def create_order_app(
 
 
 def create_configured_order_app() -> FastAPI:
-    """Build the runnable service from explicit environment configuration."""
+    """Build the Kafka-backed order API from environment variables.
+
+    Accepts:
+        ``KAFKA_BOOTSTRAP_SERVERS`` and ``ORDER_EVENTS_TOPIC`` environment
+        variables.
+
+    Returns:
+        A Kafka-backed FastAPI application.
+
+    Raises:
+        RuntimeError: If a required environment variable is missing or blank.
+    """
     bootstrap_servers = _required_environment("KAFKA_BOOTSTRAP_SERVERS")
     topic = _required_environment("ORDER_EVENTS_TOPIC")
     publisher = KafkaEventPublisher(KafkaPublisherConfig(bootstrap_servers))

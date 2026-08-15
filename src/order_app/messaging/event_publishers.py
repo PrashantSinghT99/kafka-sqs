@@ -22,7 +22,7 @@ class EventPublishError(RuntimeError):
 
 
 class EventPublisher(ABC, Generic[ReceiptT]):
-    """Common publisher shape used by the HTTP producer boundary."""
+    """Define the operation shared by Kafka and SQS event publishers."""
 
     @abstractmethod
     def publish_order_created(
@@ -30,12 +30,23 @@ class EventPublisher(ABC, Generic[ReceiptT]):
         destination: str,
         event: OrderCreatedEvent,
     ) -> ReceiptT:
-        """Publish one validated order event to a configured broker destination."""
+        """Publish one order event to a broker destination.
+
+        Args:
+            destination: Kafka topic name or SQS queue URL.
+            event: Typed order event to validate and publish.
+
+        Returns:
+            Broker-specific acknowledgement details.
+
+        Raises:
+            EventPublishError: If the broker rejects or does not acknowledge it.
+        """
 
 
 @dataclass(frozen=True)
 class KafkaPublisherConfig:
-    """Explicit producer reliability and timeout settings."""
+    """Hold Kafka connection, reliability, and timeout settings."""
 
     bootstrap_servers: str
     client_id: str = "order-app-event-producer"
@@ -44,6 +55,14 @@ class KafkaPublisherConfig:
     linger_ms: int = 0
 
     def as_confluent_config(self) -> dict[str, object]:
+        """Convert the typed settings to confluent-kafka configuration.
+
+        Returns:
+            Configuration dictionary accepted by ``confluent_kafka.Producer``.
+
+        Raises:
+            ValueError: If delivery timeout is not longer than request timeout.
+        """
         if self.delivery_timeout_seconds <= self.request_timeout_seconds:
             raise ValueError(
                 "delivery_timeout_seconds must be greater than "
@@ -79,7 +98,14 @@ class _ProducerClient(Protocol):
 
 
 def serialize_order_created_event(event: OrderCreatedEvent) -> bytes:
-    """Validate and serialize one event into deterministic UTF-8 JSON."""
+    """Validate and serialize an order event as deterministic UTF-8 JSON.
+
+    Args:
+        event: Typed event to validate and serialize.
+
+    Returns:
+        UTF-8 encoded JSON bytes ready for Kafka.
+    """
     validate_order_created_contract(event)
     return json.dumps(
         event_to_wire_dict(event),
@@ -92,7 +118,14 @@ def serialize_order_created_event(event: OrderCreatedEvent) -> bytes:
 def order_created_headers(
     event: OrderCreatedEvent,
 ) -> tuple[tuple[str, bytes], ...]:
-    """Build broker headers used for filtering, tracing, and diagnostics."""
+    """Build Kafka headers used for contract identity and tracing.
+
+    Args:
+        event: Event whose metadata should become headers.
+
+    Returns:
+        Ordered ``(header_name, header_bytes)`` pairs.
+    """
     return (
         ("content-type", b"application/json"),
         ("event-type", event.event_type.encode("utf-8")),
@@ -104,7 +137,12 @@ def order_created_headers(
 
 
 class KafkaEventPublisher(EventPublisher[KafkaPublishReceipt]):
-    """Publish a contract-valid event and wait for its delivery report."""
+    """Publish validated events to Kafka and wait for acknowledgement.
+
+    Args:
+        settings: Kafka connection and delivery configuration.
+        producer: Optional compatible producer supplied by a unit test.
+    """
 
     def __init__(
         self,
@@ -120,7 +158,19 @@ class KafkaEventPublisher(EventPublisher[KafkaPublishReceipt]):
         topic: str,
         event: OrderCreatedEvent,
     ) -> KafkaPublishReceipt:
-        """Publish one event synchronously for deterministic test control."""
+        """Publish one event and wait for Kafka's delivery report.
+
+        Args:
+            topic: Destination Kafka topic.
+            event: Typed order event to validate and publish.
+
+        Returns:
+            Topic, partition, offset, key, timestamp, and headers acknowledged.
+
+        Raises:
+            ValueError: If ``topic`` is blank.
+            EventPublishError: If Kafka rejects or does not acknowledge the event.
+        """
         if not topic.strip():
             raise ValueError("Kafka topic must not be blank.")
 
@@ -194,7 +244,11 @@ class SqsPublishReceipt:
 
 
 class SqsEventPublisher(EventPublisher[SqsPublishReceipt]):
-    """Publish validated order events through a supplied boto3 SQS client."""
+    """Publish validated order events through a boto3-compatible SQS client.
+
+    Args:
+        client: Boto3-compatible SQS client.
+    """
 
     def __init__(self, client: Any) -> None:
         self._client = client
@@ -207,6 +261,22 @@ class SqsEventPublisher(EventPublisher[SqsPublishReceipt]):
         message_group_id: str | None = None,
         deduplication_id: str | None = None,
     ) -> SqsPublishReceipt:
+        """Send one event to an SQS standard or FIFO queue.
+
+        Args:
+            destination: Destination queue URL.
+            event: Typed order event to validate and send.
+            message_group_id: Required ordering group when using a FIFO queue.
+            deduplication_id: Optional FIFO deduplication identity; defaults to
+                the event ID when a message group is provided.
+
+        Returns:
+            SQS message ID, body checksum, and optional FIFO sequence number.
+
+        Raises:
+            ValueError: If ``destination`` is blank.
+            EventPublishError: If SQS rejects the message.
+        """
         if not destination.strip():
             raise ValueError("SQS queue URL must not be blank.")
         validate_order_created_contract(event)

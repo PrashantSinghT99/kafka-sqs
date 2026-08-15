@@ -48,13 +48,29 @@ class OrderCreatedEvent(EventEnvelope[OrderCreatedData]):
 
 
 def event_to_wire_dict(event: EventEnvelope[PayloadT]) -> dict[str, object]:
-    """Serialize a typed event into JSON-compatible values."""
+    """Convert a typed event to JSON-compatible values.
+
+    Args:
+        event: Typed event envelope to convert.
+
+    Returns:
+        A dictionary containing strings, numbers, and nested JSON values.
+    """
     return event.model_dump(mode="json")
 
 
 def ensure_utc_datetime(value: datetime) -> datetime:
-    """Keep factory timestamp validation explicit and independently testable."""
+    """Require a timestamp to contain timezone information.
+
+    Args:
+        value: Timestamp to check.
+
+    Returns:
+        The unchanged timezone-aware timestamp.
+
+    Raises:
+        ValueError: If the timestamp is naive.
+    """
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("Event timestamps must include timezone information.")
     return value
-

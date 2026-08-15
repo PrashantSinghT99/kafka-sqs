@@ -26,7 +26,7 @@ class OrderConsumerTimeout(TimeoutError):
 
 @dataclass(frozen=True)
 class ConsumerSettings:
-    """Explicit at-least-once consumer configuration."""
+    """Hold Kafka connection, consumer-group, and polling configuration."""
 
     bootstrap_servers: str
     group_id: str
@@ -35,6 +35,14 @@ class ConsumerSettings:
     poll_interval_seconds: float = 0.2
 
     def as_confluent_config(self) -> dict[str, object]:
+        """Convert the typed settings to confluent-kafka configuration.
+
+        Returns:
+            Configuration that disables automatic offset commits.
+
+        Raises:
+            ValueError: If the group, reset policy, or poll interval is invalid.
+        """
         if not self.group_id.strip():
             raise ValueError("Consumer group_id must not be blank.")
         if self.offset_reset not in {"earliest", "latest"}:
@@ -97,7 +105,18 @@ class _DeadLetterPublisher(Protocol):
 
 
 class KafkaOrderConsumer:
-    """Process one event transactionally, then commit its Kafka offset."""
+    """Process Kafka orders and commit offsets only after effects succeed.
+
+    Args:
+        settings: Kafka connection and consumer-group configuration.
+        topic: Source ``order.created`` topic.
+        store: Transactional order persistence adapter.
+        downstream: Optional HTTP notification adapter.
+        retry_policy: Optional classification and retry limits.
+        dead_letter_publisher: Optional terminal-failure publisher.
+        dead_letter_topic: Destination required with a DLQ publisher.
+        consumer: Optional compatible Kafka consumer supplied by a unit test.
+    """
 
     def __init__(
         self,
@@ -137,7 +156,20 @@ class KafkaOrderConsumer:
         self.close()
 
     def process_one(self, *, timeout_seconds: float = 10.0) -> ProcessedKafkaRecord:
-        """Process one record and commit only after the DB transaction returns."""
+        """Process one Kafka record and synchronously commit its offset.
+
+        Args:
+            timeout_seconds: Maximum time to wait for a Kafka record.
+
+        Returns:
+            Evidence containing event identity, partition, offset, attempts,
+            duplicate status, and DLQ status.
+
+        Raises:
+            ValueError: If the timeout is not positive.
+            OrderConsumerTimeout: If no record arrives before the deadline.
+            OrderConsumerError: If parsing, effects, DLQ, or commit fails.
+        """
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be greater than zero.")
         deadline = monotonic() + timeout_seconds
@@ -290,6 +322,11 @@ class KafkaOrderConsumer:
         )
 
     def close(self) -> None:
+        """Close the underlying Kafka consumer once.
+
+        Returns:
+            None. Repeated calls have no additional effect.
+        """
         if not self._closed:
             self._consumer.close()
             self._closed = True

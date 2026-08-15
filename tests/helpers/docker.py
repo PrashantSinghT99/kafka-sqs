@@ -16,7 +16,14 @@ class DockerUnavailableError(RuntimeError):
 
 
 def require_docker() -> None:
-    """Verify that Docker is reachable before starting test infrastructure."""
+    """Verify Docker is reachable before integration fixtures start.
+
+    Returns:
+        None after a successful daemon ping. The temporary client is closed.
+
+    Raises:
+        DockerUnavailableError: If Docker cannot be opened or does not respond.
+    """
     client = None
     try:
         client = docker.from_env()

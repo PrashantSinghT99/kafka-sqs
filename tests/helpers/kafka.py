@@ -32,7 +32,19 @@ def unique_topic_name(
     prefix: str = "order-app-test",
     token: str | None = None,
 ) -> str:
-    """Return a readable Kafka topic name with a collision-resistant suffix."""
+    """Build a unique, readable Kafka topic name.
+
+    Args:
+        test_name: Usually the pytest node ID that identifies the owning test.
+        prefix: Human-readable topic prefix.
+        token: Optional fixed uniqueness token for deterministic unit tests.
+
+    Returns:
+        A Kafka-safe topic name no longer than 249 characters.
+
+    Raises:
+        ValueError: If the supplied token leaves no room for a topic name.
+    """
     unique_token = token or uuid4().hex[:12]
     base = _normalize_topic_segment(f"{prefix}-{test_name}") or "order-app-test"
     normalized_token = _normalize_topic_segment(unique_token) or uuid4().hex[:12]
@@ -83,7 +95,7 @@ class KafkaProbeTimeout(TimeoutError):
 
 @dataclass(frozen=True)
 class ProbeSettings:
-    """Explicit, non-committing consumer configuration for a test observer."""
+    """Hold isolated, non-committing Kafka probe configuration."""
 
     bootstrap_servers: str
     group_id: str = field(default_factory=lambda: f"order-app-test-probe-{uuid4()}")
@@ -94,6 +106,14 @@ class ProbeSettings:
     diagnostic_record_limit: int = 10
 
     def as_confluent_config(self) -> dict[str, object]:
+        """Convert probe settings to confluent-kafka consumer configuration.
+
+        Returns:
+            Configuration with automatic commit and offset storage disabled.
+
+        Raises:
+            ValueError: If reset policy, timing, or evidence limit is invalid.
+        """
         if self.offset_reset not in {"earliest", "latest"}:
             raise ValueError("offset_reset must be 'earliest' or 'latest'.")
         if self.startup_timeout_seconds <= 0 or self.poll_interval_seconds <= 0:
@@ -127,6 +147,11 @@ class ObservedKafkaRecord:
 
     @property
     def key_text(self) -> str | None:
+        """Decode the Kafka key for readable assertions and diagnostics.
+
+        Returns:
+            UTF-8 text with replacement characters, or ``None`` for no key.
+        """
         return self.key.decode("utf-8", errors="replace") if self.key else None
 
 
@@ -148,7 +173,18 @@ def match_order_created_event(
     event_id: UUID | str | None = None,
     correlation_id: str | None = None,
 ) -> RecordPredicate:
-    """Create a matcher for one event identity and/or one business journey."""
+    """Create a predicate matching event ID, correlation ID, or both.
+
+    Args:
+        event_id: Optional unique event identity.
+        correlation_id: Optional business journey identity.
+
+    Returns:
+        A function accepting ``ObservedKafkaRecord`` and returning ``bool``.
+
+    Raises:
+        ValueError: If neither identity is supplied.
+    """
     if event_id is None and correlation_id is None:
         raise ValueError("Provide event_id, correlation_id, or both.")
     expected_event_id = str(event_id) if event_id is not None else None
@@ -165,7 +201,13 @@ def match_order_created_event(
 
 
 class KafkaEventProbe:
-    """Observe a topic through an isolated consumer group without committing."""
+    """Observe Kafka independently without changing application offsets.
+
+    Args:
+        settings: Isolated group, broker, polling, and evidence configuration.
+        topic: Test-owned Kafka topic to observe.
+        consumer: Optional compatible consumer supplied by a unit test.
+    """
 
     def __init__(
         self,
@@ -194,7 +236,14 @@ class KafkaEventProbe:
         self.close()
 
     def start(self) -> KafkaEventProbe:
-        """Subscribe and wait for assignment so this observer precedes the trigger."""
+        """Subscribe and wait for assignment before triggering the producer.
+
+        Returns:
+            This ready probe instance.
+
+        Raises:
+            KafkaProbeError: If closed already or assignment times out.
+        """
         if self._closed:
             raise KafkaProbeError("A closed Kafka probe cannot be restarted.")
         if self._started:
@@ -227,7 +276,20 @@ class KafkaEventProbe:
         *,
         timeout_seconds: float = 10.0,
     ) -> ObservedKafkaRecord:
-        """Return the first matching record, or fail with bounded evidence."""
+        """Poll until a record satisfies the supplied predicate.
+
+        Args:
+            predicate: Function deciding whether an observed record matches.
+            timeout_seconds: Overall wait limit.
+
+        Returns:
+            The first matching Kafka record and parsed event evidence.
+
+        Raises:
+            ValueError: If ``timeout_seconds`` is not positive.
+            KafkaProbeError: If Kafka reports a consumer error.
+            KafkaProbeTimeout: Includes observed-record evidence at the deadline.
+        """
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be greater than zero.")
         if not self._started:
@@ -266,7 +328,11 @@ class KafkaEventProbe:
         )
 
     def close(self) -> None:
-        """Leave the isolated test group; safe to call more than once."""
+        """Close the consumer and leave the isolated probe group.
+
+        Returns:
+            None. Calling it more than once is safe.
+        """
         if not self._closed:
             self._consumer.close()
             self._closed = True

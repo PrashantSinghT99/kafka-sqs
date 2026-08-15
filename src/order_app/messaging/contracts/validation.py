@@ -36,7 +36,11 @@ class ContractValidationError(ValueError):
 
 @lru_cache(maxsize=1)
 def load_order_created_schema() -> dict[str, Any]:
-    """Load and verify the packaged Draft 2020-12 schema once per process."""
+    """Load and verify the packaged ``order.created`` JSON Schema.
+
+    Returns:
+        The schema dictionary. The result is cached for the process lifetime.
+    """
     schema_path = files("order_app.messaging.contracts.schemas").joinpath(
         "order-created-v1.json"
     )
@@ -56,7 +60,17 @@ def _order_created_validator() -> Draft202012Validator:
 def validate_order_created_contract(
     payload: Mapping[str, Any] | OrderCreatedEvent,
 ) -> None:
-    """Raise one error containing every observed wire-contract violation."""
+    """Check an event against the version-1 JSON wire contract.
+
+    Args:
+        payload: A typed event or dictionary containing the wire event.
+
+    Returns:
+        None when the complete payload is valid.
+
+    Raises:
+        ContractValidationError: Contains every discovered schema violation.
+    """
     wire_payload = (
         event_to_wire_dict(payload)
         if isinstance(payload, OrderCreatedEvent)
@@ -73,7 +87,17 @@ def validate_order_created_contract(
 
 
 def parse_order_created_event(payload: Mapping[str, Any]) -> OrderCreatedEvent:
-    """Validate the wire contract, then return its strict typed representation."""
+    """Validate a wire payload and parse it into the typed event model.
+
+    Args:
+        payload: Dictionary received from Kafka or SQS.
+
+    Returns:
+        A strict ``OrderCreatedEvent`` instance.
+
+    Raises:
+        ContractValidationError: If the payload violates the JSON Schema.
+    """
     validate_order_created_contract(payload)
     return OrderCreatedEvent.model_validate_json(json.dumps(dict(payload)))
 
@@ -100,4 +124,3 @@ def _json_path(parts: list[object]) -> str:
     for part in parts:
         path += f"[{part}]" if isinstance(part, int) else f".{part}"
     return path
-

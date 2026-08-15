@@ -38,7 +38,12 @@ class EventStoreResult:
 
 
 class PostgresOrderStore:
-    """Own schema setup, atomic event persistence, and observable queries."""
+    """Persist order events transactionally and expose observable order state.
+
+    Args:
+        dsn: PostgreSQL connection string.
+        schema: Isolated schema used for tables and queries.
+    """
 
     def __init__(self, dsn: str, *, schema: str = "public") -> None:
         if not _SCHEMA_NAME.fullmatch(schema):
@@ -47,7 +52,11 @@ class PostgresOrderStore:
         self.schema = schema
 
     def initialize(self) -> None:
-        """Create the isolated schema and tables idempotently."""
+        """Create the configured schema and tables when missing.
+
+        Returns:
+            None. Existing compatible tables remain unchanged.
+        """
         schema = sql.Identifier(self.schema)
         with psycopg.connect(self.dsn) as connection:
             connection.execute(
@@ -84,7 +93,14 @@ class PostgresOrderStore:
             )
 
     def store(self, event: OrderCreatedEvent) -> EventStoreResult:
-        """Atomically claim a new event and write its business state once."""
+        """Claim an event ID and write its order state atomically.
+
+        Args:
+            event: Valid typed event received from Kafka or SQS.
+
+        Returns:
+            Whether the event was new and whether downstream work remains.
+        """
         schema = sql.Identifier(self.schema)
         with psycopg.connect(self.dsn) as connection:
             claimed = connection.execute(
@@ -141,7 +157,17 @@ class PostgresOrderStore:
             return EventStoreResult(is_new=True, downstream_required=True)
 
     def mark_completed(self, event_id: UUID) -> None:
-        """Mark all required effects complete before Kafka offset commit."""
+        """Mark all required effects for an event as complete.
+
+        Args:
+            event_id: Event whose persistence and downstream effects succeeded.
+
+        Returns:
+            None after exactly one event row is updated.
+
+        Raises:
+            RuntimeError: If no matching processed-event row exists.
+        """
         with psycopg.connect(self.dsn) as connection:
             result = connection.execute(
                 sql.SQL(
@@ -159,7 +185,14 @@ class PostgresOrderStore:
                 )
 
     def discard(self, event_id: UUID) -> None:
-        """Atomically remove partial state before terminal dead-lettering."""
+        """Remove partially stored state before terminal dead-lettering.
+
+        Args:
+            event_id: Failed event whose partial state should be removed.
+
+        Returns:
+            None after both order and processed-event rows are removed.
+        """
         schema = sql.Identifier(self.schema)
         with psycopg.connect(self.dsn) as connection:
             connection.execute(
@@ -176,7 +209,14 @@ class PostgresOrderStore:
             )
 
     def fetch_order(self, order_id: str) -> StoredOrder | None:
-        """Return the observable business record for an assertion."""
+        """Read one stored order by business order ID.
+
+        Args:
+            order_id: Business order identifier.
+
+        Returns:
+            The stored order, or ``None`` when it does not exist.
+        """
         with psycopg.connect(
             self.dsn,
             row_factory=class_row(StoredOrder),
@@ -194,7 +234,17 @@ class PostgresOrderStore:
             ).fetchone()
 
     def list_orders(self, *, limit: int = 25) -> list[StoredOrder]:
-        """Return recent business state for the local visual dashboard."""
+        """Read the most recently stored orders for the dashboard.
+
+        Args:
+            limit: Maximum number of rows to return.
+
+        Returns:
+            Orders sorted from newest to oldest.
+
+        Raises:
+            ValueError: If ``limit`` is not positive.
+        """
         if limit <= 0:
             raise ValueError("limit must be greater than zero.")
         with psycopg.connect(
@@ -216,7 +266,14 @@ class PostgresOrderStore:
         return list(rows)
 
     def has_processed(self, event_id: UUID) -> bool:
-        """Report whether the consumer transaction recorded this event ID."""
+        """Check whether an event completed all required effects.
+
+        Args:
+            event_id: Event identity to find.
+
+        Returns:
+            ``True`` only for a processed-event row marked completed.
+        """
         with psycopg.connect(self.dsn) as connection:
             row = connection.execute(
                 sql.SQL(
@@ -228,6 +285,11 @@ class PostgresOrderStore:
         return bool(row and row[0])
 
     def order_count(self) -> int:
+        """Count stored business orders.
+
+        Returns:
+            Number of rows in the configured ``orders`` table.
+        """
         with psycopg.connect(self.dsn) as connection:
             row = connection.execute(
                 sql.SQL("SELECT COUNT(*) FROM {}.orders").format(
@@ -237,6 +299,11 @@ class PostgresOrderStore:
         return int(row[0]) if row else 0
 
     def processed_event_count(self) -> int:
+        """Count claimed event identities, including pending rows.
+
+        Returns:
+            Number of rows in the configured ``processed_events`` table.
+        """
         with psycopg.connect(self.dsn) as connection:
             row = connection.execute(
                 sql.SQL("SELECT COUNT(*) FROM {}.processed_events").format(
@@ -246,7 +313,11 @@ class PostgresOrderStore:
         return int(row[0]) if row else 0
 
     def drop_processed_events_table(self) -> None:
-        """Create a deterministic database failure for the crash-window test."""
+        """Drop the processed-event table to create a controlled test failure.
+
+        Returns:
+            None. This destructive helper is used only by a disposable test schema.
+        """
         with psycopg.connect(self.dsn) as connection:
             connection.execute(
                 sql.SQL("DROP TABLE {}.processed_events").format(
@@ -255,7 +326,14 @@ class PostgresOrderStore:
             )
 
     def drop_schema(self) -> None:
-        """Remove all function-scoped PostgreSQL state."""
+        """Delete the configured disposable schema and all its objects.
+
+        Returns:
+            None after the schema is removed.
+
+        Raises:
+            ValueError: If called for the shared ``public`` schema.
+        """
         if self.schema == "public":
             raise ValueError("The shared public schema cannot be dropped.")
         with psycopg.connect(self.dsn) as connection:

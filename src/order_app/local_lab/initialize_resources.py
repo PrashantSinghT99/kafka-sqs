@@ -5,6 +5,11 @@ from order_app.local_lab.config import LocalLabConfig
 
 
 def main() -> None:
+    """Load local configuration and provision all lab resources.
+
+    Returns:
+        None. Provisioning details are printed to standard output.
+    """
     initialize_lab(LocalLabConfig.from_environment())
 
 

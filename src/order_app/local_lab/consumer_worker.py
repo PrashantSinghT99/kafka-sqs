@@ -20,6 +20,15 @@ from order_app.order_processing import (
 
 
 def run_kafka_worker(settings: LocalLabConfig, stop: Event) -> None:
+    """Continuously process Kafka orders until shutdown is requested.
+
+    Args:
+        settings: Connections and resource names for the local lab.
+        stop: Thread event set by the shutdown signal handler.
+
+    Returns:
+        None. The function runs until ``stop`` is set.
+    """
     store = PostgresOrderStore(settings.postgres_dsn, schema=settings.kafka_schema)
     store.initialize()
     controls = ConsumerControlStore(settings.postgres_dsn)
@@ -62,6 +71,15 @@ def run_kafka_worker(settings: LocalLabConfig, stop: Event) -> None:
 
 
 def run_sqs_worker(settings: LocalLabConfig, stop: Event) -> None:
+    """Continuously process SQS orders until shutdown is requested.
+
+    Args:
+        settings: Connections and resource names for the local lab.
+        stop: Thread event set by the shutdown signal handler.
+
+    Returns:
+        None. The function runs until ``stop`` is set.
+    """
     client = build_sqs_client(settings)
     queue_url = get_queue_url(client, settings.sqs_queue_name)
     store = PostgresOrderStore(settings.postgres_dsn, schema=settings.sqs_schema)
@@ -86,6 +104,14 @@ def run_sqs_worker(settings: LocalLabConfig, stop: Event) -> None:
 
 
 def main() -> None:
+    """Run the Kafka or SQS worker selected on the command line.
+
+    Accepts:
+        Command-line argument ``broker`` with value ``kafka`` or ``sqs``.
+
+    Returns:
+        None. The process exits after receiving SIGINT or SIGTERM.
+    """
     parser = argparse.ArgumentParser(description="Run a local-lab order consumer.")
     parser.add_argument("broker", choices=("kafka", "sqs"))
     args = parser.parse_args()

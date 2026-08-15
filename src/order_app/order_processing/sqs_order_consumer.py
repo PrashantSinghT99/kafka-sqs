@@ -10,12 +10,31 @@ from order_app.order_processing.postgres_order_store import PostgresOrderStore
 
 
 class SqsOrderConsumer:
+    """Process SQS order messages and delete them only after persistence.
+
+    Args:
+        client: Boto3-compatible SQS client.
+        queue_url: Source order queue URL.
+        store: PostgreSQL order persistence adapter.
+    """
     def __init__(self, client: Any, queue_url: str, store: PostgresOrderStore) -> None:
         self.client = client
         self.queue_url = queue_url
         self.store = store
 
     def process_one(self, *, wait_seconds: int = 2) -> str:
+        """Receive, validate, persist, and delete one SQS message.
+
+        Args:
+            wait_seconds: SQS long-poll duration from 0 through 20 seconds.
+
+        Returns:
+            The processed event ID as a string.
+
+        Raises:
+            TimeoutError: If the long poll returns no message.
+            ContractValidationError: If the message body violates the contract.
+        """
         response = self.client.receive_message(
             QueueUrl=self.queue_url,
             MaxNumberOfMessages=1,

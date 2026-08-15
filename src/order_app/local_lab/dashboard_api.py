@@ -19,6 +19,11 @@ from order_app.order_processing import PostgresOrderStore, StoredOrder
 
 
 def create_local_lab_app() -> FastAPI:
+    """Build the visual dashboard with Kafka and SQS producer APIs.
+
+    Returns:
+        A configured FastAPI application connected to the local lab services.
+    """
     settings = LocalLabConfig.from_environment()
     sqs_client = build_sqs_client(settings)
     sqs_queue_url = get_queue_url(sqs_client, settings.sqs_queue_name)

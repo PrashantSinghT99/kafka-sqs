@@ -15,7 +15,7 @@ from order_app.messaging import EventPublishError, KafkaPublishReceipt
 
 @dataclass(frozen=True)
 class RetryPolicy:
-    """Deterministic retry count, backoff, and exception classification."""
+    """Hold retry attempts, backoff, and retryable exception types."""
 
     max_attempts: int = 1
     backoff_seconds: float = 0.0
@@ -28,6 +28,14 @@ class RetryPolicy:
             raise ValueError("backoff_seconds must not be negative.")
 
     def is_retryable(self, error: Exception) -> bool:
+        """Check whether an exception is eligible for another attempt.
+
+        Args:
+            error: Processing exception to classify.
+
+        Returns:
+            ``True`` when its type appears in ``retryable_errors``.
+        """
         return isinstance(error, self.retryable_errors)
 
 
@@ -47,6 +55,11 @@ class DeadLetterFailure:
     original_payload: object
 
     def to_wire_dict(self) -> dict[str, object]:
+        """Convert terminal failure evidence into a JSON-compatible payload.
+
+        Returns:
+            A dictionary including a new dead-letter ID and failure timestamp.
+        """
         return {
             "dead_letter_id": str(uuid4()),
             "failed_at": datetime.now(timezone.utc).isoformat().replace(
@@ -72,7 +85,13 @@ class _ProducerClient(Protocol):
 
 
 class KafkaDeadLetterPublisher:
-    """Publish one terminal failure and require broker acknowledgement."""
+    """Publish terminal consumer failures to Kafka and require acknowledgement.
+
+    Args:
+        bootstrap_servers: Comma-separated Kafka broker addresses.
+        delivery_timeout_seconds: Maximum acknowledgement wait.
+        producer: Optional compatible producer supplied by a unit test.
+    """
 
     def __init__(
         self,
@@ -97,6 +116,18 @@ class KafkaDeadLetterPublisher:
         topic: str,
         failure: DeadLetterFailure,
     ) -> KafkaPublishReceipt:
+        """Publish one terminal processing failure to a DLQ topic.
+
+        Args:
+            topic: Destination Kafka dead-letter topic.
+            failure: Source record and final error evidence.
+
+        Returns:
+            Kafka topic, partition, offset, key, timestamp, and headers.
+
+        Raises:
+            EventPublishError: If Kafka rejects or does not acknowledge it.
+        """
         wire = failure.to_wire_dict()
         key = failure.event_id or failure.key or str(wire["dead_letter_id"])
         delivered: list[Message] = []

@@ -45,7 +45,22 @@ def eventually(
     interval_seconds: float = 0.1,
     description: str = "expected condition",
 ) -> ObservedT:
-    """Return when an asynchronous observation matches, or fail at its deadline."""
+    """Poll an asynchronous outcome until it matches or reaches a deadline.
+
+    Args:
+        observe: Function that reads the current external state.
+        predicate: Function returning ``True`` when that state is acceptable.
+        timeout_seconds: Overall wait limit.
+        interval_seconds: Delay between observations.
+        description: Human-readable condition included in timeout evidence.
+
+    Returns:
+        The first observed value accepted by ``predicate``.
+
+    Raises:
+        ValueError: If either timing value is not positive.
+        EventuallyTimeout: If no observation matches before the deadline.
+    """
     if timeout_seconds <= 0:
         raise ValueError("timeout_seconds must be greater than zero.")
     if interval_seconds <= 0:
@@ -94,11 +109,16 @@ class RecordedHttpRequest:
     body: bytes
 
     def json(self) -> Any:
+        """Decode the captured HTTP request body as JSON.
+
+        Returns:
+            The decoded JSON value.
+        """
         return json.loads(self.body.decode("utf-8"))
 
 
 class RecordingHttpStub:
-    """Context-managed HTTP server owned entirely by one test."""
+    """Run a temporary HTTP server with scripted responses and request capture."""
 
     def __init__(self) -> None:
         self._lock = Lock()
@@ -115,6 +135,14 @@ class RecordingHttpStub:
 
     @property
     def base_url(self) -> str:
+        """Return the running stub's loopback URL.
+
+        Returns:
+            URL such as ``http://127.0.0.1:54321``.
+
+        Raises:
+            RuntimeError: If the stub has not been started.
+        """
         if self._server is None:
             raise RuntimeError("HTTP stub has not been started.")
         host, port = self._server.server_address[:2]
@@ -122,6 +150,11 @@ class RecordingHttpStub:
 
     @property
     def requests(self) -> tuple[RecordedHttpRequest, ...]:
+        """Read an immutable snapshot of captured HTTP requests.
+
+        Returns:
+            Requests in the order the stub received them.
+        """
         with self._lock:
             return tuple(self._requests)
 
@@ -131,12 +164,29 @@ class RecordingHttpStub:
         *,
         json_body: object | None = None,
     ) -> None:
+        """Queue the response returned to the next HTTP request.
+
+        Args:
+            status_code: HTTP status from 100 through 599.
+            json_body: Optional value serialized as the response body.
+
+        Returns:
+            None. The response is appended to the stub's queue.
+
+        Raises:
+            ValueError: If ``status_code`` is outside the HTTP range.
+        """
         if not 100 <= status_code <= 599:
             raise ValueError("HTTP stub status_code must be between 100 and 599.")
         with self._lock:
             self._responses.append(HttpStubResponse(status_code, json_body))
 
     def start(self) -> RecordingHttpStub:
+        """Start the loopback HTTP server when not already running.
+
+        Returns:
+            This stub instance, ready to use as a context manager.
+        """
         if self._server is not None:
             return self
 
@@ -184,6 +234,11 @@ class RecordingHttpStub:
         return self
 
     def stop(self) -> None:
+        """Stop the server and join its background thread.
+
+        Returns:
+            None. Calling it more than once is safe.
+        """
         if self._server is not None:
             self._server.shutdown()
             self._server.server_close()
