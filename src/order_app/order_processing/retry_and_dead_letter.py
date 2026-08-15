@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from confluent_kafka import Message, Producer
 
-from order_app.messaging import KafkaPublishError, KafkaPublishReceipt
+from order_app.messaging import EventPublishError, KafkaPublishReceipt
 
 
 @dataclass(frozen=True)
@@ -127,7 +127,7 @@ class KafkaDeadLetterPublisher:
         remaining = self._producer.flush(self.delivery_timeout_seconds)
         if remaining or errors or len(delivered) != 1:
             detail = errors[0] if errors else f"undelivered={remaining}"
-            raise KafkaPublishError(
+            raise EventPublishError(
                 f"DLQ publication failed for event {failure.event_id}: {detail}"
             )
 

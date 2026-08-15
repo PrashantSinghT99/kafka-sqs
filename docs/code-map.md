@@ -94,7 +94,7 @@ The `local_lab` folder wires these same components into the visual dashboard. It
 | Resource lifecycle | `KafkaEventProbe`, `RecordingHttpStub` | Each owns a live client/server, mutable observation state, and deterministic cleanup |
 | Stateful adapter | `PostgresOrderStore`, `KafkaTopicAdmin`, order consumers | Each retains configuration and an SDK/database client across multiple operations |
 | Data/configuration value | `KafkaPublisherConfig`, `SqsQueueSet`, event models | Dataclasses and Pydantic models validate and name structured data; they do not hide procedural behavior |
-| Domain-specific failure | `KafkaPublishError`, `EventuallyTimeout` | Exception classes let callers catch a precise failure and preserve diagnostics |
+| Domain-specific failure | `EventPublishError`, `EventuallyTimeout` | Exception classes let callers catch a meaningful failure and preserve diagnostics |
 
 The former `SqsQueueProbe` and `SqsTestResources` wrappers did not own meaningful lifecycle beyond a supplied boto3 client, so they were replaced with `wait_for_sqs_event`, `create_sqs_queue_set`, and `delete_sqs_queue_set` functions.
 

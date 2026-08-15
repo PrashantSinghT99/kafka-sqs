@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from order_app.messaging.contracts import OrderCreatedEvent
-from order_app.messaging import KafkaPublishError
+from order_app.messaging import EventPublishError
 from order_app.order_api import create_order_app
 
 
@@ -110,7 +110,7 @@ def test_invalid_request_never_calls_publisher(payload: dict[str, object]) -> No
 
 @pytest.mark.unit
 def test_publish_failure_returns_service_unavailable_without_broker_detail() -> None:
-    publisher = _RecordingPublisher(KafkaPublishError("secret broker detail"))
+    publisher = _RecordingPublisher(EventPublishError("secret broker detail"))
 
     response = _client(publisher).post(
         "/orders",

@@ -18,7 +18,7 @@ ReceiptT = TypeVar("ReceiptT")
 
 
 class EventPublishError(RuntimeError):
-    """Base failure raised when a broker does not accept an event."""
+    """Raised when Kafka or SQS rejects or fails to acknowledge an event."""
 
 
 class EventPublisher(ABC, Generic[ReceiptT]):
@@ -31,10 +31,6 @@ class EventPublisher(ABC, Generic[ReceiptT]):
         event: OrderCreatedEvent,
     ) -> ReceiptT:
         """Publish one validated order event to a configured broker destination."""
-
-
-class KafkaPublishError(EventPublishError):
-    """Raised when Kafka does not acknowledge a test event successfully."""
 
 
 @dataclass(frozen=True)
@@ -66,7 +62,7 @@ class KafkaPublisherConfig:
 
 @dataclass(frozen=True)
 class KafkaPublishReceipt:
-    """Broker acknowledgement returned to a producer test."""
+    """Kafka delivery acknowledgement returned to the caller."""
 
     topic: str
     partition: int
@@ -150,23 +146,23 @@ class KafkaEventPublisher(EventPublisher[KafkaPublishReceipt]):
             )
             undelivered = self._producer.flush(self.settings.delivery_timeout_seconds)
         except (BufferError, KafkaException, RuntimeError) as exc:
-            raise KafkaPublishError(
+            raise EventPublishError(
                 f"Kafka rejected event {event.event_id} for topic {topic!r}: {exc}"
             ) from exc
 
         if undelivered:
-            raise KafkaPublishError(
+            raise EventPublishError(
                 f"Kafka did not acknowledge {undelivered} queued record(s) within "
                 f"{self.settings.delivery_timeout_seconds:.1f} seconds; "
                 f"event_id={event.event_id}, topic={topic!r}."
             )
         if delivery_errors:
-            raise KafkaPublishError(
+            raise EventPublishError(
                 f"Kafka delivery failed for event {event.event_id} on topic "
                 f"{topic!r}: {delivery_errors[0]}"
             )
         if len(delivered_message) != 1:
-            raise KafkaPublishError(
+            raise EventPublishError(
                 f"Kafka flush completed without one delivery report for event "
                 f"{event.event_id} on topic {topic!r}."
             )
@@ -195,10 +191,6 @@ class SqsPublishReceipt:
     message_id: str
     md5_of_body: str
     sequence_number: str | None = None
-
-
-class SqsPublishError(EventPublishError):
-    """Raised when SQS rejects an order event."""
 
 
 class SqsEventPublisher(EventPublisher[SqsPublishReceipt]):
@@ -256,7 +248,7 @@ class SqsEventPublisher(EventPublisher[SqsPublishReceipt]):
         try:
             response = self._client.send_message(**request)
         except (BotoCoreError, ClientError, OSError) as exc:
-            raise SqsPublishError(
+            raise EventPublishError(
                 f"SQS rejected event {event.event_id} for queue {destination!r}: {exc}"
             ) from exc
         return SqsPublishReceipt(

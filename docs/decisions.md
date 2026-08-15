@@ -7,10 +7,10 @@ This is the living implementation record for the project. Update it whenever a s
 | Item | Current value |
 |---|---|
 | Active phase | Phase 8 — Structure and naming cleanup |
-| Current point | Step 21C — Consolidate helpers and broker publishers |
+| Current point | Step 21D — Remove redundant broker-specific exceptions |
 | Step status | Completed and verified |
-| Last completed step | Step 21C — Four-file helpers and shared publisher hierarchy |
-| Next gate | Walk through `docs/code-map.md`, then map each runtime boundary to its automated tests |
+| Last completed step | Step 21D — Single publish-error boundary |
+| Next gate | Continue the file/class necessity audit using the same caller-behavior rule |
 
 ## Repository state
 
@@ -53,6 +53,7 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-15 | Step 21A — Runtime/test responsibility separation | Completed | Fast gate: 53 tests passed; complete regression: 81 tests passed |
 | 2026-08-15 | Step 21B — Responsibility-based file and folder names | Completed | Imports/Compose entry points passed; 81 tests passed; rebuilt visual lab healthy with data preserved |
 | 2026-08-15 | Step 21C — Helper and publisher consolidation | Completed | 54 fast tests and 82 total tests passed; rebuilt visual lab healthy with 8 existing orders preserved |
+| 2026-08-15 | Step 21D — Publish exception simplification | Completed | Redundant Kafka/SQS subclasses removed; 54 fast and 82 total tests passed |
 
 ## Decision record
 
@@ -468,6 +469,13 @@ This is the living implementation record for the project. Update it whenever a s
 - Decision: Keep exactly four implementation modules under `tests/helpers` (`kafka.py`, `sqs.py`, `client_stub.py`, and `docker.py`). Put both broker publishers in `messaging/event_publishers.py` behind the generic `EventPublisher` base class.
 - Reason: Splitting a single test domain across resource-name, probe, image, and readiness modules added navigation cost without creating useful boundaries. Kafka and SQS publishers perform the same application role and are clearer as child implementations of one explicit contract.
 - Consequence: Stateless SQS resource/probe wrappers become functions. Classes remain only for state/lifecycle, structured data, polymorphic behavior, or distinct exception handling. The required `tests/helpers/__init__.py` package marker contains no helper implementation.
+
+### D-060 — Use one publish exception unless callers need broker-specific recovery
+
+- Status: Accepted
+- Decision: Keep `EventPublishError` and remove the `KafkaPublishError` and `SqsPublishError` subclasses.
+- Reason: The HTTP API handles both failures identically by returning a safe `503`, and no runtime caller performs Kafka-specific or SQS-specific recovery based on exception type. Broker context is already present in each error message.
+- Consequence: Kafka, SQS, and Kafka DLQ publishers raise the same application-boundary exception. Broker-specific subclasses should be reintroduced only if a caller genuinely needs different recovery behavior.
 
 ## Verification log
 
@@ -959,6 +967,22 @@ This is the living implementation record for the project. Update it whenever a s
   - Stateful lifecycle classes remain where justified: Passed
   - Full disposable-infrastructure behavior remains green: Passed
   - Persistent visual application remains healthy with data preserved: Passed
+
+### Step 21D — Remove redundant broker-specific publish exceptions
+
+- Date: 2026-08-15
+- Decision: D-060
+- Removed: `KafkaPublishError` and `SqsPublishError`
+- Retained: `EventPublishError`, because publishers raise it and the HTTP API catches it to return a safe `503`
+- Fast command: `.\.venv\Scripts\python.exe -m pytest -m "unit or contract" -q`
+- Fast result: Passed — 54 selected tests passed, 28 deselected in 5.75 seconds
+- Full command: `.\.venv\Scripts\python.exe -m pytest -q`
+- Full result: Passed — 82 tests passed, 1 dependency deprecation warning, in 69.71 seconds
+- Acceptance criteria:
+  - No unused broker-specific publish exception remains: Passed
+  - Kafka, SQS, and DLQ failures use one application-boundary exception: Passed
+  - API failure mapping remains safe and broker-independent: Passed
+  - Complete regression remains green: Passed
 
 ## Open decisions
 

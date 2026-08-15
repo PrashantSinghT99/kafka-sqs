@@ -10,8 +10,8 @@ import pytest
 from order_app.messaging.contracts import make_order_created_event
 from order_app.messaging import (
     EventPublisher,
+    EventPublishError,
     KafkaEventPublisher,
-    KafkaPublishError,
     KafkaPublisherConfig,
     SqsEventPublisher,
 )
@@ -96,7 +96,7 @@ def test_delivery_callback_error_becomes_test_friendly_exception() -> None:
         producer=_FakeProducer(error="broker rejected record"),
     )
 
-    with pytest.raises(KafkaPublishError, match="broker rejected record"):
+    with pytest.raises(EventPublishError, match="broker rejected record"):
         producer.publish_order_created("orders", make_order_created_event())
 
 
@@ -107,7 +107,7 @@ def test_flush_timeout_reports_undelivered_count() -> None:
         producer=_FakeProducer(remaining=1),
     )
 
-    with pytest.raises(KafkaPublishError, match="1 queued record"):
+    with pytest.raises(EventPublishError, match="1 queued record"):
         producer.publish_order_created("orders", make_order_created_event())
 
 
