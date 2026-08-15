@@ -4,11 +4,11 @@ from uuid import uuid4
 
 import pytest
 
-from mqtest import eventually
-from mqtest.contracts import make_order_created_event
-from mqtest.http import RecordingHttpStub
-from mqtest.kafka import KafkaEventProducer, ProducerSettings, TopicMetadata
-from sample_app.order_consumer import (
+from tests.helpers.eventually import eventually
+from order_app.messaging.contracts import make_order_created_event
+from tests.helpers.http import RecordingHttpStub
+from order_app.messaging.kafka import KafkaEventProducer, ProducerSettings, TopicMetadata
+from order_app.order_consumer import (
     ConsumerSettings,
     KafkaOrderConsumer,
     OrderNotificationClient,

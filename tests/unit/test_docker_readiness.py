@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from mqtest.infrastructure import docker as docker_readiness
+from tests.helpers.infrastructure import docker as docker_readiness
 
 
 class _ReadyDockerClient:

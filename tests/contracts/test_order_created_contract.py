@@ -2,14 +2,14 @@
 
 import pytest
 
-from mqtest.contracts import (
+from order_app.messaging.contracts import (
     ContractValidationError,
     ValidationIssue,
     make_order_created_event,
     parse_order_created_event,
     validate_order_created_contract,
 )
-from mqtest.contracts.models import event_to_wire_dict
+from order_app.messaging.contracts.models import event_to_wire_dict
 
 
 @pytest.mark.contract

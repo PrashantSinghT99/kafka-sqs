@@ -2,8 +2,8 @@
 
 import pytest
 
-from mqtest.contracts import make_order_created_event
-from mqtest.kafka import (
+from order_app.messaging.contracts import make_order_created_event
+from order_app.messaging.kafka import (
     KafkaEventProbe,
     KafkaEventProducer,
     KafkaProbeTimeout,

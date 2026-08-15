@@ -2,7 +2,7 @@
 
 import pytest
 
-from sample_app.order_consumer import (
+from order_app.order_consumer import (
     DownstreamNotificationError,
     RetryPolicy,
 )

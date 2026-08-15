@@ -2,7 +2,7 @@
 
 import pytest
 
-from mqtest import EventuallyTimeout, eventually
+from tests.helpers.eventually import EventuallyTimeout, eventually
 
 
 @pytest.mark.unit

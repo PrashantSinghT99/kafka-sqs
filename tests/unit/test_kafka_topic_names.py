@@ -4,7 +4,7 @@ import re
 
 import pytest
 
-from mqtest.kafka.names import MAX_TOPIC_NAME_LENGTH, unique_topic_name
+from order_app.messaging.kafka.names import MAX_TOPIC_NAME_LENGTH, unique_topic_name
 
 
 @pytest.mark.unit
@@ -14,7 +14,7 @@ def test_topic_name_is_readable_and_kafka_safe() -> None:
         token="abc123",
     )
 
-    assert name == "mqtest-tests-integration-test-orders.py-creates-order-inr-abc123"
+    assert name == "order-app-test-tests-integration-test-orders.py-creates-order-inr-abc123"
     assert re.fullmatch(r"[a-z0-9._-]+", name)
 
 

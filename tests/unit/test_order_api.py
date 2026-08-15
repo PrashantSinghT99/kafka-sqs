@@ -7,9 +7,9 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from mqtest.contracts import OrderCreatedEvent
-from mqtest.kafka import KafkaPublishError
-from sample_app.order_api import create_order_app
+from order_app.messaging.contracts import OrderCreatedEvent
+from order_app.messaging.kafka import KafkaPublishError
+from order_app.order_api import create_order_app
 
 
 class _RecordingPublisher:

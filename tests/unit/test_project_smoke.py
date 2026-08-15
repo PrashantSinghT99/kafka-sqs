@@ -2,13 +2,12 @@
 
 import pytest
 
-import mqtest
-import sample_app
+import order_app
+import order_app.messaging
 
 
 @pytest.mark.unit
-def test_learning_packages_are_importable() -> None:
-    """The harness and sample system are separate importable packages."""
-    assert mqtest.__version__ == "0.1.0"
-    assert sample_app.__doc__
-
+def test_application_and_testkit_packages_are_importable() -> None:
+    """The order application and its testkit are separate packages."""
+    assert order_app.__doc__
+    assert order_app.messaging.__doc__

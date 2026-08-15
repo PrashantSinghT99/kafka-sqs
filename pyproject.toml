@@ -3,7 +3,7 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mqtest-learning-framework"
+name = "order-app-messaging-lab"
 version = "0.1.0"
 description = "Hands-on Kafka and SQS test automation learning framework"
 readme = "README.md"
@@ -34,8 +34,8 @@ dev = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-"mqtest.contracts" = ["schemas/*.json"]
-"sample_app.local_lab" = ["static/*.html"]
+"order_app.messaging.contracts" = ["schemas/*.json"]
+"order_app.local_lab" = ["static/*.html"]
 
 [tool.pytest.ini_options]
 minversion = "8.2"

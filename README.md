@@ -74,7 +74,7 @@ Run the sample producer API against a configured Kafka topic:
 ```powershell
 $env:KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
 $env:ORDER_EVENTS_TOPIC = "orders.created"
-uvicorn --factory sample_app.order_api:create_configured_order_app
+uvicorn --factory order_app.order_api:create_configured_order_app
 ```
 
 The API accepts `POST /orders`, propagates an optional `X-Correlation-ID`, and

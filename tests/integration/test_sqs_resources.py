@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from mqtest.sqs import SqsQueueSet
+from order_app.messaging.sqs import SqsQueueSet
 
 
 @pytest.mark.integration

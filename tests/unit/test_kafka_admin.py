@@ -7,7 +7,7 @@ from typing import Any, cast
 from confluent_kafka.admin import AdminClient
 import pytest
 
-from mqtest.kafka.admin import (
+from order_app.messaging.kafka.admin import (
     KafkaAdminError,
     KafkaTestAdmin,
     TopicMetadata,
@@ -34,7 +34,7 @@ def test_create_topic_waits_for_metadata_propagation(
         timeout_seconds=1.0,
         admin_client=cast(AdminClient, _CreateOnlyAdminClient()),
     )
-    spec = TopicSpec(name="mqtest-eventual-metadata")
+    spec = TopicSpec(name="order-app-test-eventual-metadata")
     expected = TopicMetadata(
         name=spec.name,
         partition_ids=(0, 1, 2),
@@ -61,4 +61,3 @@ def test_create_topic_waits_for_metadata_propagation(
 
     assert created == expected
     assert attempts == 2
-

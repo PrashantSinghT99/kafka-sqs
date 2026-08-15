@@ -240,16 +240,18 @@ kafka-sqs/
 |   |-- architecture.md
 |   `-- implementation-plan.md
 |-- src/
-|   |-- mqtest/
-|   |   |-- contracts/
-|   |   |-- eventual/
-|   |   |-- kafka/
-|   |   |-- sqs/
-|   |   `-- evidence/
-|   `-- sample_app/
-|       |-- producer_api/
-|       `-- order_consumer/
+|   `-- order_app/
+|       |-- messaging/
+|       |   |-- contracts/
+|       |   |-- kafka/
+|       |   `-- sqs/
+|       |-- order_api/
+|       |-- order_consumer/
+|       `-- local_lab/
 |-- tests/
+|   |-- helpers/
+|   |   |-- http/
+|   |   `-- infrastructure/
 |   |-- unit/
 |   |-- contracts/
 |   `-- integration/

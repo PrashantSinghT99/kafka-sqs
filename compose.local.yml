@@ -16,7 +16,7 @@ x-app-environment: &app-environment
   ADMINER_URL: http://127.0.0.1:8089
 
 x-app-image: &app-image
-  image: mqtest-local-app:latest
+  image: order-app-local:latest
 
 services:
   kafka:
@@ -118,7 +118,7 @@ services:
       context: .
       dockerfile: Dockerfile.local
     container_name: mqtest-local-init
-    command: ["python", "-m", "sample_app.local_lab.initialize"]
+    command: ["python", "-m", "order_app.local_lab.initialize"]
     environment: *app-environment
     depends_on:
       kafka:
@@ -132,7 +132,7 @@ services:
   kafka-worker:
     <<: *app-image
     container_name: mqtest-local-kafka-worker
-    command: ["python", "-m", "sample_app.local_lab.workers", "kafka"]
+    command: ["python", "-m", "order_app.local_lab.workers", "kafka"]
     environment: *app-environment
     depends_on:
       lab-init:
@@ -142,7 +142,7 @@ services:
   sqs-worker:
     <<: *app-image
     container_name: mqtest-local-sqs-worker
-    command: ["python", "-m", "sample_app.local_lab.workers", "sqs"]
+    command: ["python", "-m", "order_app.local_lab.workers", "sqs"]
     environment: *app-environment
     depends_on:
       lab-init:
@@ -154,7 +154,7 @@ services:
     container_name: mqtest-local-dashboard
     command:
       - uvicorn
-      - sample_app.local_lab.app:create_local_lab_app
+      - order_app.local_lab.app:create_local_lab_app
       - --factory
       - --host
       - 0.0.0.0

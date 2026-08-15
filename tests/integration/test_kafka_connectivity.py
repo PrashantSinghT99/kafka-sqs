@@ -3,7 +3,7 @@
 from confluent_kafka.admin import AdminClient
 import pytest
 
-from mqtest.kafka import KAFKA_IMAGE
+from order_app.messaging.kafka import KAFKA_IMAGE
 
 
 @pytest.mark.integration
@@ -15,7 +15,7 @@ def test_kafka_broker_reports_cluster_metadata(
     admin = AdminClient(
         {
             "bootstrap.servers": kafka_bootstrap_servers,
-            "client.id": "mqtest-step-2-connectivity",
+            "client.id": "order-app-test-step-2-connectivity",
             "socket.timeout.ms": 5_000,
         }
     )
@@ -26,4 +26,3 @@ def test_kafka_broker_reports_cluster_metadata(
         f"Kafka image {KAFKA_IMAGE!r} returned no broker metadata via "
         f"{kafka_bootstrap_servers!r}."
     )
-

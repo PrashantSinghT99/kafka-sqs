@@ -4,9 +4,9 @@ from uuid import uuid4
 
 import pytest
 
-from mqtest import eventually
-from mqtest.contracts import make_order_created_event
-from mqtest.sqs import SqsEventClient, SqsQueueSet
+from tests.helpers.eventually import eventually
+from order_app.messaging.contracts import make_order_created_event
+from order_app.messaging.sqs import SqsEventClient, SqsQueueSet
 
 
 @pytest.mark.integration

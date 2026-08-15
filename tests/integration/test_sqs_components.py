@@ -3,10 +3,10 @@
 from fastapi.testclient import TestClient
 import pytest
 
-from mqtest.contracts import make_order_created_event
-from mqtest.sqs import SqsEventClient, SqsQueueSet
-from sample_app.order_api import create_order_app
-from sample_app.order_consumer import PostgresOrderStore, SqsOrderConsumer
+from order_app.messaging.contracts import make_order_created_event
+from order_app.messaging.sqs import SqsEventClient, SqsQueueSet
+from order_app.order_api import create_order_app
+from order_app.order_consumer import PostgresOrderStore, SqsOrderConsumer
 
 
 @pytest.mark.integration

@@ -5,8 +5,8 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from mqtest.contracts import validate_order_created_contract
-from mqtest.kafka import (
+from order_app.messaging.contracts import validate_order_created_contract
+from order_app.messaging.kafka import (
     KafkaEventProbe,
     KafkaEventProducer,
     KafkaProbeTimeout,
@@ -15,7 +15,7 @@ from mqtest.kafka import (
     TopicMetadata,
     match_order_created_event,
 )
-from sample_app.order_api import create_order_app
+from order_app.order_api import create_order_app
 
 
 @pytest.mark.integration

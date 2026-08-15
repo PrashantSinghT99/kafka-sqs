@@ -2,7 +2,7 @@
 
 import pytest
 
-from mqtest.kafka import KafkaTestAdmin, TopicMetadata, TopicSpec, unique_topic_name
+from order_app.messaging.kafka import KafkaTestAdmin, TopicMetadata, TopicSpec, unique_topic_name
 
 
 @pytest.mark.integration

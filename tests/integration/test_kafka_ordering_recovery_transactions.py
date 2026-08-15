@@ -5,8 +5,8 @@ from uuid import uuid4
 from confluent_kafka import Producer
 import pytest
 
-from mqtest.contracts import OrderCreatedEvent, make_order_created_event
-from mqtest.kafka import (
+from order_app.messaging.contracts import OrderCreatedEvent, make_order_created_event
+from order_app.messaging.kafka import (
     KafkaEventProbe,
     KafkaEventProducer,
     KafkaProbeTimeout,
@@ -17,7 +17,7 @@ from mqtest.kafka import (
     order_created_headers,
     serialize_order_created_event,
 )
-from sample_app.order_consumer import (
+from order_app.order_consumer import (
     ConsumerSettings,
     KafkaOrderConsumer,
     PostgresOrderStore,

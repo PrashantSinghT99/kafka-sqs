@@ -437,6 +437,13 @@ This is the living implementation record for the project. Update it whenever a s
 - Reason: A continuously running SQS consumer can receive and delete a successful message before a learner sees it waiting in the queue.
 - Consequence: A learner can pause, publish, observe broker acknowledgement without a database effect, then resume and observe acknowledgement completion. The control is local-lab-only and is not part of production sample logic.
 
+### D-056 — Name runtime code and test helpers by responsibility
+
+- Status: Accepted; supersedes the package naming portion of D-003.
+- Decision: Rename `sample_app` to `order_app`, place runtime contracts and Kafka/SQS clients under `order_app.messaging`, and move test-only polling, HTTP stubs, and infrastructure helpers under `tests.helpers`.
+- Reason: `sample_app` did not identify the business domain, while `mqtest` and the proposed `order_app_tests` obscured the difference between reusable support code and the actual pytest cases already stored under `tests`.
+- Consequence: Application code never imports from `tests`; actual test cases remain under `tests/unit`, `tests/contracts`, and `tests/integration`; reusable test-only code has the explicit `tests/helpers` boundary.
+
 ## Verification log
 
 ### Step 1 — Python project bootstrap
@@ -838,6 +845,29 @@ This is the living implementation record for the project. Update it whenever a s
   - SQS message waits while paused and is deleted after success: Passed
   - Consumer controls and browser flow report no console errors: Passed
   - Stop preserves data and reset requires explicit confirmation: Passed by script review; destructive reset was not executed
+
+### Step 20 — Clarify application, runtime messaging, and test-helper names
+
+- Date: 2026-08-15
+- Decision: D-056
+- Application package: `src/order_app`
+- Runtime messaging package: `src/order_app/messaging`
+- Test-only support package: `tests/helpers`
+- Actual test cases: `tests/unit`, `tests/contracts`, and `tests/integration`
+- Installed distribution: editable `order-app-messaging-lab==0.1.0`
+- Fast verification command: `.\.venv\Scripts\python.exe -m pytest -m "unit or contract" -q`
+- Fast result: Passed — 53 selected tests passed, 28 deselected in 6.77 seconds
+- Compose verification command: `docker compose -f compose.local.yml config --quiet`
+- Compose result: Passed
+- Full verification command: `.\.venv\Scripts\python.exe -m pytest -q`
+- Full result: Passed — 81 tests in 66.01 seconds
+- Compatibility decision: Existing Compose project, container, volume, and PostgreSQL identifiers retain `mqtest` temporarily so the learner's persistent Kafka messages, offsets, queues, and database rows remain attached. They are infrastructure state identifiers, not Python package names.
+- Acceptance criteria:
+  - No `sample_app` or `order_app_tests` references remain in active code/configuration: Passed
+  - Application source does not import from `tests`: Passed
+  - Runtime contracts and clients are packaged with `order_app`: Passed
+  - Test-only polling, HTTP stub, and Testcontainers support live under `tests/helpers`: Passed
+  - Complete regression suite passes: Passed
 
 ## Open decisions
 

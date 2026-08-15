@@ -5,7 +5,7 @@ from uuid import UUID
 
 import pytest
 
-from mqtest.contracts import make_order_created_event
+from order_app.messaging.contracts import make_order_created_event
 
 
 @pytest.mark.unit

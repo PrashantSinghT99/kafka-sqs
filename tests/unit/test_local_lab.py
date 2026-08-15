@@ -5,12 +5,12 @@ from pathlib import Path
 import pytest
 import yaml
 
-from mqtest.kafka import TopicSpec
-from sample_app.local_lab.app import _dashboard_html
-from sample_app.local_lab.control import ConsumerControls
-from sample_app.local_lab.infrastructure import ensure_topic
-from sample_app.local_lab.settings import LocalLabSettings
-from sample_app.order_consumer import PostgresOrderStore
+from order_app.messaging.kafka import TopicSpec
+from order_app.local_lab.app import _dashboard_html
+from order_app.local_lab.control import ConsumerControls
+from order_app.local_lab.infrastructure import ensure_topic
+from order_app.local_lab.settings import LocalLabSettings
+from order_app.order_consumer import PostgresOrderStore
 
 
 ROOT = Path(__file__).parents[2]

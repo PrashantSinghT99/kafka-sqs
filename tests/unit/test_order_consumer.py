@@ -6,9 +6,9 @@ from typing import Any
 
 import pytest
 
-from mqtest.contracts import make_order_created_event
-from mqtest.kafka import serialize_order_created_event
-from sample_app.order_consumer import (
+from order_app.messaging.contracts import make_order_created_event
+from order_app.messaging.kafka import serialize_order_created_event
+from order_app.order_consumer import (
     ConsumerSettings,
     EventStoreResult,
     KafkaOrderConsumer,

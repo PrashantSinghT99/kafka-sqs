@@ -2,7 +2,7 @@
 
 import pytest
 
-from mqtest.sqs import unique_queue_name
+from order_app.messaging.sqs import unique_queue_name
 
 
 @pytest.mark.unit

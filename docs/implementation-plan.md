@@ -26,7 +26,7 @@ Tasks:
 
 1. Add `pyproject.toml` with Python 3.12 metadata.
 2. Add pytest and development-tool configuration.
-3. Create importable `mqtest` and `sample_app` packages.
+3. Create the importable `order_app` package and keep test-only support under `tests/helpers`.
 4. Add one unit smoke test.
 5. Add `.gitignore` for Python, test, environment, and report outputs.
 6. Add commands to the README for environment setup and unit tests.
@@ -37,7 +37,7 @@ Acceptance criteria:
 - `pytest -m unit` passes without Docker.
 - No application or broker behavior exists yet.
 
-Learning checkpoint: explain the difference between the reusable test harness and the sample system under test.
+Learning checkpoint: explain the difference between the reusable testkit and the order application under test.
 
 ### Step 2 — Start disposable Kafka
 
