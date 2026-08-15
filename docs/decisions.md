@@ -6,11 +6,11 @@ This is the living implementation record for the project. Update it whenever a s
 
 | Item | Current value |
 |---|---|
-| Active phase | Phase 7 — Visual local learning lab |
-| Current point | Step 19 — Visual local learning mode |
+| Active phase | Phase 8 — Structure and naming cleanup |
+| Current point | Step 21A — Separate runtime code from test support |
 | Step status | Completed and verified |
-| Last completed step | Step 19 — Visual local learning mode |
-| Next gate | Use the visual walkthrough, then map observed boundaries to automated tests |
+| Last completed step | Step 21A — Runtime/test responsibility separation |
+| Next gate | Step 21B — Rename vague runtime modules by their concrete responsibility |
 
 ## Repository state
 
@@ -49,6 +49,8 @@ This is the living implementation record for the project. Update it whenever a s
 | 2026-08-12 | Step 19A — Persistent local infrastructure | Completed | Compose configuration valid; Kafka, Console, LocalStack, PostgreSQL, and Adminer healthy; host SDK connections and browser UIs verified |
 | 2026-08-12 | Step 19B — Local application and visual journey | Completed | Browser sent real Kafka and SQS events; consumers committed/deleted after PostgreSQL; pause/resume made queued state observable |
 | 2026-08-12 | Step 19 — Final local-lab gate | Completed | 81 tests passed while lab ran; Status/Stop/Start preserved Kafka and SQS database rows; disposable test containers cleaned |
+| 2026-08-15 | Step 20 — Package-boundary naming cleanup | Completed | `order_app` contains application/runtime code; `tests/helpers` contains pytest support; 81 tests passed |
+| 2026-08-15 | Step 21A — Runtime/test responsibility separation | Completed | Fast gate: 53 tests passed; complete regression: 81 tests passed |
 
 ## Decision record
 
@@ -443,6 +445,13 @@ This is the living implementation record for the project. Update it whenever a s
 - Decision: Rename `sample_app` to `order_app`, place runtime contracts and Kafka/SQS clients under `order_app.messaging`, and move test-only polling, HTTP stubs, and infrastructure helpers under `tests.helpers`.
 - Reason: `sample_app` did not identify the business domain, while `mqtest` and the proposed `order_app_tests` obscured the difference between reusable support code and the actual pytest cases already stored under `tests`.
 - Consequence: Application code never imports from `tests`; actual test cases remain under `tests/unit`, `tests/contracts`, and `tests/integration`; reusable test-only code has the explicit `tests/helpers` boundary.
+
+### D-057 — Do not package test probes and test resource factories as application code
+
+- Status: Accepted
+- Decision: Keep production-capable publishers and consumers under `src/order_app`, but move broker observation probes, generated test resource names, and pinned Testcontainers image names to `tests/helpers`.
+- Reason: These objects are needed by automated tests, but the running order application never calls them. Packaging them beside runtime clients made unused test machinery appear to be part of the application.
+- Consequence: `SqsEventClient` is reduced to publishing only; the SQS receive-and-assert behavior is named `SqsQueueProbe` under test helpers. Kafka/SQS resource factories and all container image pins also live under the test boundary.
 
 ## Verification log
 
@@ -868,6 +877,24 @@ This is the living implementation record for the project. Update it whenever a s
   - Runtime contracts and clients are packaged with `order_app`: Passed
   - Test-only polling, HTTP stub, and Testcontainers support live under `tests/helpers`: Passed
   - Complete regression suite passes: Passed
+
+### Step 21A — Separate application runtime from automated-test support
+
+- Date: 2026-08-15
+- Decision: D-057
+- Runtime boundary: `src/order_app` contains code called by the API, workers, and local lab
+- Test-support boundary: `tests/helpers` contains probes, generated topic/queue names, and Testcontainers image pins
+- Refactoring: Split SQS publishing from SQS receive-and-assert behavior; consolidated three image-setting modules into `tests/helpers/container_images.py`
+- Fast verification command: `.\.venv\Scripts\python.exe -m pytest -m "unit or contract" -q`
+- Fast result: Passed — 53 selected tests passed, 28 deselected in 5.37 seconds
+- Full verification command: `.\.venv\Scripts\python.exe -m pytest -q`
+- Full result: Passed — 81 tests passed, 1 dependency deprecation warning, in 60.18 seconds
+- Acceptance criteria:
+  - No application module exposes test observation probes: Passed
+  - Generated test resource names live under `tests/helpers`: Passed
+  - Container images are defined once under test support: Passed
+  - Unit and contract tests remain green: Passed
+  - Complete Kafka/SQS regression remains green: Passed
 
 ## Open decisions
 

@@ -4,7 +4,7 @@ import re
 
 import pytest
 
-from order_app.messaging.kafka.names import MAX_TOPIC_NAME_LENGTH, unique_topic_name
+from tests.helpers.kafka_topic_names import MAX_TOPIC_NAME_LENGTH, unique_topic_name
 
 
 @pytest.mark.unit

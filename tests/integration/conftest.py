@@ -11,18 +11,21 @@ from testcontainers.kafka import KafkaContainer
 from testcontainers.localstack import LocalStackContainer
 from testcontainers.postgres import PostgresContainer
 
-from tests.helpers.infrastructure import POSTGRES_IMAGE
+from tests.helpers.container_images import (
+    KAFKA_IMAGE,
+    LOCALSTACK_IMAGE,
+    POSTGRES_IMAGE,
+)
 from tests.helpers.infrastructure.docker import DockerUnavailableError, require_docker
 from order_app.messaging.kafka import (
-    KAFKA_IMAGE,
     KafkaAdminError,
     KafkaTestAdmin,
     TopicMetadata,
     TopicSpec,
-    unique_topic_name,
 )
-from order_app.messaging.sqs import LOCALSTACK_IMAGE, SqsQueueSet, SqsTestResources
 from order_app.order_consumer import PostgresOrderStore
+from tests.helpers.kafka_topic_names import unique_topic_name
+from tests.helpers.sqs_queues import SqsQueueSet, SqsTestResources
 
 
 @pytest.fixture(scope="session")

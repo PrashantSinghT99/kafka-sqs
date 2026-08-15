@@ -7,12 +7,12 @@ from typing import Any
 import pytest
 
 from order_app.messaging.contracts import make_order_created_event
-from order_app.messaging.kafka import (
+from order_app.messaging.kafka import serialize_order_created_event
+from tests.helpers.kafka_event_probe import (
     KafkaEventProbe,
     KafkaProbeTimeout,
     ProbeSettings,
     match_order_created_event,
-    serialize_order_created_event,
 )
 
 

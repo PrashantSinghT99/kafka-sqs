@@ -2,7 +2,8 @@
 
 import pytest
 
-from order_app.messaging.kafka import KafkaTestAdmin, TopicMetadata, TopicSpec, unique_topic_name
+from order_app.messaging.kafka import KafkaTestAdmin, TopicMetadata, TopicSpec
+from tests.helpers.kafka_topic_names import unique_topic_name
 
 
 @pytest.mark.integration
@@ -35,4 +36,3 @@ def test_admin_topic_lifecycle_removes_deleted_topic(
         kafka_admin.delete_topic(topic_name)
 
     assert topic_name not in kafka_admin.list_topic_names()
-

@@ -7,12 +7,14 @@ from fastapi.testclient import TestClient
 
 from order_app.messaging.contracts import validate_order_created_contract
 from order_app.messaging.kafka import (
-    KafkaEventProbe,
     KafkaEventProducer,
-    KafkaProbeTimeout,
-    ProbeSettings,
     ProducerSettings,
     TopicMetadata,
+)
+from tests.helpers.kafka_event_probe import (
+    KafkaEventProbe,
+    KafkaProbeTimeout,
+    ProbeSettings,
     match_order_created_event,
 )
 from order_app.order_api import create_order_app

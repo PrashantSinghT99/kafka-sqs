@@ -8,12 +8,11 @@ import pytest
 from order_app.messaging.contracts import make_order_created_event
 from tests.helpers.http import RecordingHttpStub
 from order_app.messaging.kafka import (
-    KafkaEventProbe,
     KafkaEventProducer,
-    ProbeSettings,
     ProducerSettings,
     TopicMetadata,
 )
+from tests.helpers.kafka_event_probe import KafkaEventProbe, ProbeSettings
 from order_app.order_consumer import (
     ConsumerSettings,
     DownstreamNotificationError,

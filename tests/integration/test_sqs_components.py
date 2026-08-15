@@ -4,9 +4,11 @@ from fastapi.testclient import TestClient
 import pytest
 
 from order_app.messaging.contracts import make_order_created_event
-from order_app.messaging.sqs import SqsEventClient, SqsQueueSet
+from order_app.messaging.sqs import SqsEventClient
 from order_app.order_api import create_order_app
 from order_app.order_consumer import PostgresOrderStore, SqsOrderConsumer
+from tests.helpers.sqs_event_probe import SqsQueueProbe
+from tests.helpers.sqs_queues import SqsQueueSet
 
 
 @pytest.mark.integration
@@ -17,6 +19,7 @@ def test_api_publishes_contract_event_to_owned_sqs_queue(
 ) -> None:
     correlation_id = "sqs-api-component-1"
     event_client = SqsEventClient(sqs_client)
+    event_probe = SqsQueueProbe(sqs_client)
     app = create_order_app(
         event_client,
         sqs_queues.standard_url,
@@ -30,7 +33,7 @@ def test_api_publishes_contract_event_to_owned_sqs_queue(
             headers={"X-Correlation-ID": correlation_id},
             json={"customer_id": "CUS-SQS-1", "amount": 55.5, "currency": "INR"},
         )
-    observed = event_client.wait_for_event(
+    observed = event_probe.wait_for_event(
         sqs_queues.standard_url,
         correlation_id=correlation_id,
     )

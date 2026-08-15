@@ -4,12 +4,14 @@ import pytest
 
 from order_app.messaging.contracts import make_order_created_event
 from order_app.messaging.kafka import (
-    KafkaEventProbe,
     KafkaEventProducer,
-    KafkaProbeTimeout,
-    ProbeSettings,
     ProducerSettings,
     TopicMetadata,
+)
+from tests.helpers.kafka_event_probe import (
+    KafkaEventProbe,
+    KafkaProbeTimeout,
+    ProbeSettings,
     match_order_created_event,
 )
 

@@ -6,7 +6,8 @@ import pytest
 
 from tests.helpers.eventually import eventually
 from order_app.messaging.contracts import make_order_created_event
-from order_app.messaging.sqs import SqsEventClient, SqsQueueSet
+from order_app.messaging.sqs import SqsEventClient
+from tests.helpers.sqs_queues import SqsQueueSet
 
 
 @pytest.mark.integration
